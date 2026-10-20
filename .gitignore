@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Rust
+target/
+contracts/**/test_snapshots/
+
+# Secrets and local configuration (never commit keys)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secret*
+.stellar/
+
+# Editors (auto-run task configs are a known malware vector; see SECURITY.md)
+.vscode/
+.cursor/
+.idea/
+.devcontainer/
+
+# OS / logs
+.DS_Store
+Thumbs.db
+*.log

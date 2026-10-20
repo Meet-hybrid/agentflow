@@ -1,0 +1,26 @@
+{
+  "name": "agentflow",
+  "private": true,
+  "description": "Autonomous AI agent bounty and task coordination exchange on Stellar/Soroban",
+  "license": "MIT OR Apache-2.0",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --workspace-concurrency=1 run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "pnpm -r --workspace-concurrency=1 run test",
+    "hygiene": "bash scripts/check-repo-hygiene.sh",
+    "contract:build": "cd contracts && stellar contract build",
+    "contract:test": "cd contracts && cargo test --locked",
+    "db:up": "bash scripts/db.sh up",
+    "db:down": "bash scripts/db.sh down",
+    "db:migrate": "pnpm --filter @agentflow/api run migrate"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": []
+  }
+}

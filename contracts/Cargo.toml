@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["escrow"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Meet-hybrid/agentflow"
+
+[workspace.dependencies]
+soroban-sdk = "=29.0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug-assertions = false
+# Soroban requires overflow checks; stellar-cli refuses to build without them.
+overflow-checks = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true

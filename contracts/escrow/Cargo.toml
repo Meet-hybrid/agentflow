@@ -1,0 +1,19 @@
+[package]
+name = "agentflow-escrow"
+description = "Task escrow for AgentFlow: holds a client's bounty until approved work, a review timeout, a refund or an arbiter's ruling releases it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
