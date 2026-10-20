@@ -34,24 +34,39 @@ const ALIAS = /^[A-Za-z0-9_-]+$/;
 
 export function cliSigner(alias: string): Signer {
   if (!ALIAS.test(alias)) throw new Error(`invalid Stellar key alias ${alias}`);
-  const publicKey = execFileSync("stellar", ["keys", "address", alias], { encoding: "utf8", timeout: 30_000 }).trim();
+  const publicKey = execFileSync("stellar", ["keys", "address", alias], {
+    encoding: "utf8",
+    timeout: 30_000,
+  }).trim();
   return {
     publicKey,
     sign(xdr, networkPassphrase) {
       return execFileSync(
         "stellar",
-        ["tx", "sign", "--sign-with-key", alias, "--network-passphrase", networkPassphrase, "--quiet"],
+        [
+          "tx",
+          "sign",
+          "--sign-with-key",
+          alias,
+          "--network-passphrase",
+          networkPassphrase,
+          "--quiet",
+        ],
         { input: xdr, encoding: "utf8", timeout: 60_000 },
       ).trim();
     },
   };
 }
 
-export function resolveSecret(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function resolveSecret(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
   if (env[name]) return env[name];
   const file = env[`${name}_FILE`];
   if (file) {
-    if (statSync(file).mode & 0o077) throw new Error(`${file} must not be readable by group or others (chmod 600)`);
+    if (statSync(file).mode & 0o077)
+      throw new Error(`${file} must not be readable by group or others (chmod 600)`);
     return readFileSync(file, "utf8").trim();
   }
   return undefined;
