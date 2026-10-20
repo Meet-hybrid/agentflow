@@ -1,0 +1,17 @@
+{
+  "name": "@agentflow/reference-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "agentflow-agent": "./src/cli.ts" },
+  "scripts": {
+    "start": "node --env-file-if-exists=../../.env src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agentflow/shared": "workspace:*",
+    "@agentflow/stellar": "workspace:*",
+    "@stellar/stellar-sdk": "17.2.1"
+  }
+}
