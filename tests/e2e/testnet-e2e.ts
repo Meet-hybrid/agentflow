@@ -18,7 +18,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CSV_AGGREGATE } from "@agentflow/shared";
-import { EscrowClient, EscrowError, resolveSecret } from "@agentflow/stellar";
+import { cliSigner, EscrowClient, keypairSigner, type Signer } from "@agentflow/stellar";
 import {
   Account,
   Address,
@@ -104,11 +104,11 @@ async function http(method: string, path: string, token?: string, body?: unknown
   return { status: res.status, body: json };
 }
 
-async function signIn(kp: Keypair) {
-  const ch = await http("POST", "/auth/challenge", undefined, { address: kp.publicKey() });
-  const tx = TransactionBuilder.fromXDR(ch.body.transaction, PASS);
-  tx.sign(kp);
-  const res = await http("POST", "/auth/token", undefined, { transaction: tx.toXdr() });
+async function signIn(signer: Signer) {
+  const ch = await http("POST", "/auth/challenge", undefined, { address: signer.publicKey });
+  const res = await http("POST", "/auth/token", undefined, {
+    transaction: signer.sign(ch.body.transaction, PASS),
+  });
   assert(res.status === 200, `sign-in failed ${JSON.stringify(res.body)}`);
   return res.body.token as string;
 }
@@ -128,16 +128,14 @@ async function waitFor<T>(
 }
 
 /** The same prepare → sign → submit → confirm path the web wallet uses. */
-async function chainOp(taskId: string, token: string, kp: Keypair, request: object) {
+async function chainOp(taskId: string, token: string, signer: Signer, request: object) {
   const prep = await http("POST", `/tasks/${taskId}/chain-ops`, token, request);
   assert(
     prep.status === 201,
     `prepare ${JSON.stringify(request)} failed: ${JSON.stringify(prep.body)}`,
   );
-  const tx = TransactionBuilder.fromXDR(prep.body.xdr, PASS);
-  tx.sign(kp);
   const sent = await http("POST", `/chain-ops/${prep.body.id}/signed`, token, {
-    signedXdr: tx.toXdr(),
+    signedXdr: signer.sign(prep.body.xdr, PASS),
   });
   assert(sent.status === 200, `submit failed: ${JSON.stringify(sent.body)}`);
   const op = await waitFor<{
@@ -203,8 +201,9 @@ try {
     agentPayout: payout.publicKey(),
   });
 
-  const clientToken = await signIn(client);
-  const operatorToken = await signIn(operator);
+  const clientSigner = keypairSigner(client.secret());
+  const clientToken = await signIn(clientSigner);
+  const operatorToken = await signIn(keypairSigner(operator.secret()));
   log("client and operator signed in with SEP-10");
 
   const reg = await http("POST", "/agents", operatorToken, {
@@ -217,7 +216,7 @@ try {
   const agent = new ReferenceAgent({
     apiUrl: API,
     apiKey: reg.body.apiKey,
-    payoutSecret: payout.secret(),
+    signer: keypairSigner(payout.secret()),
     minReward: "1",
     stateDir: await mkdtemp(join(tmpdir(), "agentflow-e2e-agent-")),
     maxExecutionAttempts: 2,
@@ -232,7 +231,7 @@ try {
   assert(a.status === 201, "task creation failed");
   const aId = a.body.id as string;
   const contractBefore = await tokenBalance(deployment.contractId);
-  const fundA = await chainOp(aId, clientToken, client, { action: "fund" });
+  const fundA = await chainOp(aId, clientToken, clientSigner, { action: "fund" });
   await waitFor("task A open", async () => (await status(aId)) === "open");
   const onFunded = await escrow.readTask(a.body.onchainId);
   assert(
@@ -250,7 +249,7 @@ try {
   assert(apps.body.length === 1, "agent should have applied");
   log("A: agent discovered the task, evaluated it and applied");
 
-  const assignA = await chainOp(aId, clientToken, client, {
+  const assignA = await chainOp(aId, clientToken, clientSigner, {
     action: "accept_application",
     applicationId: apps.body[0].id,
   });
@@ -271,7 +270,7 @@ try {
   });
 
   const payoutBefore = await tokenBalance(payout.publicKey());
-  const approveA = await chainOp(aId, clientToken, client, { action: "approve" });
+  const approveA = await chainOp(aId, clientToken, clientSigner, { action: "approve" });
   await waitFor("task A paid", async () => (await status(aId)) === "paid");
   const onReleased = await escrow.readTask(a.body.onchainId);
   assert(onReleased?.state === "Released", "escrow should be Released");
@@ -290,20 +289,26 @@ try {
   const again = await http("POST", `/tasks/${aId}/chain-ops`, clientToken, { action: "approve" });
   assert(again.status === 409, "second approve must be refused");
   const b = await http("POST", "/tasks", clientToken, task("E2E B: unauthorized release", "2"));
-  await chainOp(b.body.id, clientToken, client, { action: "fund" });
+  await chainOp(b.body.id, clientToken, clientSigner, { action: "fund" });
   await waitFor("task B open", async () => (await status(b.body.id)) === "open");
   const viaApi = await http("POST", `/tasks/${b.body.id}/chain-ops`, reg.body.apiKey, {
     action: "refund",
   });
   assert(viaApi.status === 403, "agent must not be able to refund through the API");
-  let refused = false;
-  try {
-    await escrow.prepare(payout.publicKey(), { fn: "refund", taskId: b.body.onchainId });
-  } catch (e) {
-    refused = e instanceof EscrowError;
+  // Simulation only records which authorizations are needed; enforcement
+  // happens on submission. Sign the refund with the agent's key alone and
+  // send it: the network must reject it and the escrow must be untouched.
+  const forged = await escrow.prepare(payout.publicKey(), { fn: "refund", taskId: b.body.onchainId });
+  const forgedTx = TransactionBuilder.fromXDR(forged.xdr, PASS) as Transaction;
+  forgedTx.sign(payout);
+  const forgedSend = await escrow.send(forgedTx);
+  let forgedResult = forgedSend.status as string;
+  if (forgedSend.status === "PENDING") {
+    forgedResult = (await escrow.server.pollTransaction(forged.hash, { attempts: 30 })).status;
   }
-  assert(refused, "contract must refuse a refund not signed by the client");
+  assert(forgedResult === "ERROR" || forgedResult === "FAILED", `forged refund must fail, got ${forgedResult}`);
   assert((await escrow.readTask(b.body.onchainId))?.state === "Funded", "task B escrow untouched");
+  steps.push({ step: "B: agent-signed refund rejected by the network", detail: { tx: forged.hash, result: forgedResult } });
   log("B: double approval and an agent-signed refund were refused by the API and the contract");
 
   // ----- C. Interrupted request reconciled from chain ------------------------------
@@ -324,18 +329,18 @@ try {
   // ----- D. Rejection, dispute, arbiter ruling -----------------------------------------
   const d = await http("POST", "/tasks", clientToken, task("E2E D: disputed work", "4"));
   const dId = d.body.id as string;
-  await chainOp(dId, clientToken, client, { action: "fund" });
+  await chainOp(dId, clientToken, clientSigner, { action: "fund" });
   await waitFor("task D open", async () => (await status(dId)) === "open");
   await agent.runOnce();
   const dApps = await http("GET", `/tasks/${dId}/applications`, clientToken);
-  await chainOp(dId, clientToken, client, {
+  await chainOp(dId, clientToken, clientSigner, {
     action: "accept_application",
     applicationId: dApps.body[0].id,
   });
   await waitFor("task D assigned", async () => (await status(dId)) === "assigned");
   await agent.runOnce();
   await waitFor("task D under review", async () => (await status(dId)) === "under_review");
-  const rejectD = await chainOp(dId, clientToken, client, {
+  const rejectD = await chainOp(dId, clientToken, clientSigner, {
     action: "reject",
     reason: "Not what I wanted",
   });
@@ -346,9 +351,9 @@ try {
     rejectTx: rejectD.txHash,
   });
 
-  const arbiterSecret = resolveSecret("ARBITER", { ARBITER_STELLAR_KEY: "agentflow-arbiter" });
-  assert(arbiterSecret, "arbiter key not found in the Stellar CLI keyring");
-  const arbiter = Keypair.fromSecret(arbiterSecret);
+  // The arbiter key stays in the OS keyring; the Stellar CLI signs for it.
+  const arbiter = cliSigner("agentflow-arbiter");
+  assert(arbiter.publicKey === deployment.arbiter, "keyring arbiter does not match the deployment");
   const arbiterToken = await signIn(arbiter);
   const clientBeforeD = await tokenBalance(client.publicKey());
   const payoutBeforeD = await tokenBalance(payout.publicKey());

@@ -16,6 +16,7 @@ import {
   signIn,
   taskBody,
 } from "../../../apps/api/test/helpers.ts";
+import { keypairSigner } from "@agentflow/stellar";
 import { ReferenceAgent } from "../src/agent.ts";
 
 let h: Harness;
@@ -49,7 +50,7 @@ async function newAgent(minReward = "1") {
   const agent = new ReferenceAgent({
     apiUrl: url,
     apiKey: reg.body.apiKey,
-    payoutSecret: payout.secret(),
+    signer: keypairSigner(payout.secret()),
     minReward,
     stateDir: await mkdtemp(join(tmpdir(), "agentflow-agent-")),
     maxExecutionAttempts: 2,

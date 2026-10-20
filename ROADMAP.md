@@ -11,11 +11,12 @@ Status as of the first MVP (October 2026). "Done" means implemented **and** test
 - Prepare/sign/submit/confirm transaction flow with idempotency, a one-in-flight-per-task guarantee, failure/expiry handling, event indexing and reconciliation
 - Reference agent with a sandboxed executor, transaction inspection before signing, retries and dispute-on-unfair-rejection
 - Web app for clients, operators and the arbiter
-- Testnet deployment script and real-transaction end-to-end script
+- Testnet deployment and a passing real-transaction end-to-end run (see `deployments/`)
 
 ## In progress
 
-- Recorded testnet demonstration and published deployment (see `deployments/`)
+- Manual browser verification of the Freighter flows in the web app, and a recorded demo
+- Browser end-to-end tests for the web app
 
 ## Planned
 

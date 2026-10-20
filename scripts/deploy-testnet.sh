@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Deploys the AgentFlow escrow contract to Stellar TESTNET.
 #
-# Keys are created with `stellar keys generate --secure-store`, so secrets live
-# in the OS keyring, not in files. Accounts are funded by Friendbot (test XLM).
+# The deployer and arbiter keys are created with `stellar keys generate
+# --secure-store`, so they live in the OS keyring and only the Stellar CLI signs
+# with them. The SEP-10 key (signs auth challenges, holds no funds) must be
+# readable by the API, so it is written to ~/.config/agentflow/sep10.secret
+# with mode 600, outside the repository. Accounts are funded by Friendbot.
 # Writes deployments/testnet.json and prints the API configuration to use.
 #
 # Usage: bash scripts/deploy-testnet.sh            (REVIEW_WINDOW defaults to 600s)
@@ -22,7 +25,12 @@ ensure_key() {
 
 DEPLOYER=$(ensure_key agentflow-deployer)
 ARBITER=$(ensure_key agentflow-arbiter)
-SEP10=$(ensure_key agentflow-sep10) # signs auth challenges only; never funded
+SEP10_FILE="${SEP10_FILE:-$HOME/.config/agentflow/sep10.secret}"
+if [ ! -f "$SEP10_FILE" ]; then
+  mkdir -p "$(dirname "$SEP10_FILE")" && chmod 700 "$(dirname "$SEP10_FILE")"
+  (umask 077 && cd packages/stellar && node -e \
+    'import("@stellar/stellar-sdk").then(s => process.stdout.write(s.Keypair.random().secret()))' > "$SEP10_FILE")
+fi
 echo "deployer: $DEPLOYER"
 echo "arbiter:  $ARBITER"
 
@@ -58,9 +66,9 @@ JSON
 
 cat <<ENV
 
-Add to .env (the SEP-10 secret is read from the OS keyring by alias):
+Add to .env:
 ESCROW_CONTRACT_ID=$CONTRACT
 ARBITER_ADDRESS=$ARBITER
 ASSETS=[{"code":"XLM","contractId":"$XLM_SAC","decimals":7}]
-SEP10_SERVER_SECRET_STELLAR_KEY=agentflow-sep10
+SEP10_SERVER_SECRET_FILE=$SEP10_FILE
 ENV

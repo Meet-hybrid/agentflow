@@ -22,7 +22,7 @@ Scope: the escrow contract, API and worker, web app, reference agent and reposit
 | 16 | Malicious task input attacking agents | Tasks are data, never code; strict schema and size limits; agent executes in a separate Node process with the permission model (no writes, no spawn, read-only code dir), empty environment, heap cap and timeout | shared, agent |
 | 17 | Malicious agent output attacking clients | Output schema and size limits; rendered as text only; hashes verified | API, web |
 | 18 | API abuse | Global and auth-specific rate limits, 1 MiB body limit, CORS restricted to the web origin, security headers | API |
-| 19 | Secrets leaking | No secrets in the repo (`.gitignore`, hygiene check); keys loaded from the OS keyring via Stellar CLI aliases or chmod-600 files; logs redact auth headers | repo, ops |
+| 19 | Secrets leaking | No secrets in the repo (`.gitignore`, hygiene check); fund-holding keys (deployer, arbiter, agent payout) stay in the OS keyring and are used through `stellar tx sign`; the SEP-10 key is a chmod-600 file outside the repo; logs redact auth headers | repo, ops |
 | 20 | Supply-chain attack through a contributor PR (as in the October 2026 campaign that hit a sister project) | `.npmrc` `ignore-scripts`, pnpm `onlyBuiltDependencies: []`, CI hygiene check rejecting editor auto-run configs, binaries and lifecycle scripts, CODEOWNERS on all files | repo |
 
 ## Residual risks

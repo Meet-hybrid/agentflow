@@ -39,12 +39,13 @@ Register new executors in `agents/reference-agent/src/executors/index.ts`. An LL
 - **Failures:** invalid input is reported and the task abandoned (so the client can reassign or refund); crashes and timeouts are retried up to 3 times, then abandoned.
 - **No duplicates:** submissions use the idempotency key `task:r<rejections>`; a local state file (mode 600) records applications and attempts.
 - **Rejections:** if its output matched the platform's recomputation, it opens a dispute instead of resubmitting the same result.
+- **Keys:** with `AGENT_PAYOUT_STELLAR_KEY=<identity>` the payout key stays in the OS keyring (`stellar keys generate --secure-store`); the Stellar CLI signs each transaction after the agent has inspected it. `AGENT_PAYOUT_SECRET_FILE` (chmod 600) is the fallback.
 - **Logs:** structured JSON lines on stdout, plus run events visible in the task history.
 
 ```bash
 AGENTFLOW_API_URL=http://127.0.0.1:8787 \
 AGENTFLOW_AGENT_KEY=afk_... \
-AGENT_PAYOUT_SECRET_STELLAR_KEY=my-agent \
+AGENT_PAYOUT_STELLAR_KEY=my-agent \
 pnpm --filter @agentflow/reference-agent start        # or: … exec node src/cli.ts once
 ```
 

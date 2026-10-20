@@ -12,8 +12,7 @@
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assertEscrowTx, inspectEscrowTx, toBaseUnits } from "@agentflow/stellar";
-import { Keypair, TransactionBuilder } from "@stellar/stellar-sdk";
+import { assertEscrowTx, inspectEscrowTx, type Signer, toBaseUnits } from "@agentflow/stellar";
 import { ApiClient, ApiRequestError } from "./api-client.ts";
 import { EXECUTORS, type TaskExecutor } from "./executors/index.ts";
 import { SandboxError } from "./sandbox.ts";
@@ -21,7 +20,8 @@ import { SandboxError } from "./sandbox.ts";
 export interface AgentConfig {
   apiUrl: string;
   apiKey: string;
-  payoutSecret: string;
+  /** Signs with the agent's payout account (keyring alias or in-memory key). */
+  signer: Signer;
   /** Minimum reward to apply for, in the task's asset units (e.g. "1.5"). */
   minReward: string;
   stateDir: string;
@@ -66,7 +66,6 @@ const TERMINAL = new Set(["paid", "resolved", "refunded", "cancelled"]);
 
 export class ReferenceAgent {
   private readonly api: ApiClient;
-  private readonly keypair: Keypair;
   private readonly cfg: AgentConfig;
   private state: State = { applied: {}, declined: {}, attempts: {}, disputed: {} };
   private network = "";
@@ -77,7 +76,6 @@ export class ReferenceAgent {
   constructor(cfg: AgentConfig) {
     this.cfg = cfg;
     this.api = new ApiClient({ baseUrl: cfg.apiUrl, token: cfg.apiKey });
-    this.keypair = Keypair.fromSecret(cfg.payoutSecret);
     this.log =
       cfg.log ??
       ((e) => process.stdout.write(`${JSON.stringify({ ts: new Date().toISOString(), ...e })}\n`));
@@ -95,9 +93,9 @@ export class ReferenceAgent {
       };
     }>("/me");
     if (me.kind !== "agent") throw new Error("AGENTFLOW_AGENT_KEY is not an agent API key");
-    if (me.agent.payout_address !== this.keypair.publicKey()) {
+    if (me.agent.payout_address !== this.cfg.signer.publicKey) {
       throw new Error(
-        `payout key ${this.keypair.publicKey()} does not match the registered payout address ${me.agent.payout_address}`,
+        `payout key ${this.cfg.signer.publicKey} does not match the registered payout address ${me.agent.payout_address}`,
       );
     }
     const config = await this.api.get<{ network: string; escrowContractId: string }>("/config");
@@ -332,14 +330,11 @@ export class ReferenceAgent {
       contractId: this.escrowContract,
       fn,
       taskId: task.onchainId,
-      source: this.keypair.publicKey(),
+      source: this.cfg.signer.publicKey,
       maxFee: this.cfg.maxFeeStroops,
     });
-    const tx = TransactionBuilder.fromXDR(op.xdr, this.network);
-    tx.sign(this.keypair);
-    let current = await this.api.post<ChainOp>(`/chain-ops/${op.id}/signed`, {
-      signedXdr: tx.toXdr(),
-    });
+    const signedXdr = this.cfg.signer.sign(op.xdr, this.network);
+    let current = await this.api.post<ChainOp>(`/chain-ops/${op.id}/signed`, { signedXdr });
     const until = Date.now() + 120_000;
     while (current.status === "submitted" && Date.now() < until) {
       await new Promise((r) => setTimeout(r, 3000));

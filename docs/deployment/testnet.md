@@ -2,13 +2,24 @@
 
 Everything here uses **Stellar testnet** and Friendbot test XLM. No real funds.
 
+## Current deployment
+
+| | |
+|---|---|
+| Escrow contract | [`CBT4QNZ7V3FYJIYYA26Y3OJZZL42RMDDX6IEAMDTDMGSGCDNYIN3YQKH`](https://stellar.expert/explorer/testnet/contract/CBT4QNZ7V3FYJIYYA26Y3OJZZL42RMDDX6IEAMDTDMGSGCDNYIN3YQKH) |
+| WASM sha256 | `cbef19680ba1a4fc642cca6edf3585304368f1a5bf1bf3e0722fbb1464329431` |
+| Arbiter | `GAI5MOCF2NQWICQXGEQ4V6UXW72FNFW7XRDZ43ZWUO2OVWH4CXIEWIO7` |
+| Review window | 600 seconds |
+| Allowed asset | native XLM (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`) |
+| Last E2E run | [`deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json`](../../deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json): all four scenarios passed with real transactions |
+
 ## 1. Deploy the contract
 
 ```bash
 bash scripts/deploy-testnet.sh
 ```
 
-This creates three Stellar CLI identities **in the OS keyring** (`--secure-store`): `agentflow-deployer` (contract admin), `agentflow-arbiter` and `agentflow-sep10` (auth challenges only, never funded). It funds the first two with Friendbot, builds the WASM, deploys it with the native XLM Stellar Asset Contract allowlisted and a 600-second review window, reads the configuration back from the chain, and writes `deployments/testnet.json`.
+This creates two Stellar CLI identities **in the OS keyring** (`--secure-store`): `agentflow-deployer` (contract admin) and `agentflow-arbiter`. Their secrets never leave the keyring; the CLI signs with them. It also writes the SEP-10 challenge key (holds no funds; the API must load it) to `~/.config/agentflow/sep10.secret` with mode 600, outside the repository. It funds both accounts with Friendbot, builds the WASM, deploys it with the native XLM Stellar Asset Contract allowlisted and a 600-second review window, reads the configuration back from the chain, and writes `deployments/testnet.json`.
 
 ## 2. Configure
 
@@ -16,7 +27,7 @@ This creates three Stellar CLI identities **in the OS keyring** (`--secure-store
 cp .env.example .env
 ```
 
-Fill `ESCROW_CONTRACT_ID`, `ARBITER_ADDRESS` and `ASSETS` from the script output. `SEP10_SERVER_SECRET_STELLAR_KEY=agentflow-sep10` makes the API read the SEP-10 key from the keyring at start-up.
+Fill `ESCROW_CONTRACT_ID`, `ARBITER_ADDRESS`, `ASSETS` and `SEP10_SERVER_SECRET_FILE` from the script output.
 
 ## 3. Run
 
@@ -32,7 +43,7 @@ pnpm --filter @agentflow/web dev          # http://127.0.0.1:5173
 2. Connect as the client, **Post a task** (the default sample works), then **Fund escrow** and approve in Freighter. The task becomes *open* once the transaction confirms.
 3. Switch Freighter to the second account (the **operator**), sign in, and register an agent in **Dashboard** with a payout account you control in the Stellar CLI:
    `stellar keys generate demo-agent --secure-store && stellar keys fund demo-agent --network testnet`.
-4. Start the agent: `AGENTFLOW_AGENT_KEY=afk_… AGENT_PAYOUT_SECRET_STELLAR_KEY=demo-agent pnpm --filter @agentflow/reference-agent start`. It applies within one poll.
+4. Start the agent: `AGENTFLOW_AGENT_KEY=afk_… AGENT_PAYOUT_STELLAR_KEY=demo-agent pnpm --filter @agentflow/reference-agent start`. It applies within one poll.
 5. As the client, **Assign** the agent. The agent executes, submits and records its submission on-chain; the task moves to *under review* with a verification report.
 6. **Approve and release payment**. When confirmed, the task is *paid*; every transaction links to stellar.expert.
 

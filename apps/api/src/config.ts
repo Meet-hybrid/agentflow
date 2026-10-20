@@ -36,7 +36,7 @@ const envSchema = z.object({
 export type Config = z.infer<typeof envSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  // The SEP-10 key may come from a file or the Stellar CLI keyring by alias.
+  // The SEP-10 key may come from the environment or a chmod-600 file.
   const parsed = envSchema.safeParse({
     ...env,
     SEP10_SERVER_SECRET: resolveSecret("SEP10_SERVER_SECRET", env),
