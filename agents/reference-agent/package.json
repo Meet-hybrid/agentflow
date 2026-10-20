@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "agentflow-agent": "./src/cli.ts" },
+  "bin": {
+    "agentflow-agent": "./src/cli.ts"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=../../.env src/cli.ts",
     "typecheck": "tsc -p tsconfig.json",

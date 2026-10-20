@@ -6,8 +6,8 @@ import {
   Keypair,
   Networks,
   nativeToScVal,
-  scValToNative,
   StrKey,
+  scValToNative,
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
@@ -194,7 +194,10 @@ describe("SEP-10", () => {
 
   it("rejects a challenge issued by another server", () => {
     const user = Keypair.random();
-    const forged = createChallenge({ ...config, serverSecret: Keypair.random().secret() }, user.publicKey());
+    const forged = createChallenge(
+      { ...config, serverSecret: Keypair.random().secret() },
+      user.publicKey(),
+    );
     const tx = TransactionBuilder.fromXDR(forged, PASS);
     tx.sign(user);
     expect(() => verifyChallenge(config, tx.toXdr())).toThrow();

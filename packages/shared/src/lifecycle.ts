@@ -25,7 +25,12 @@ export const TASK_STATUSES = [
 ] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const TERMINAL_STATUSES: readonly TaskStatus[] = ["paid", "resolved", "cancelled", "refunded"];
+export const TERMINAL_STATUSES: readonly TaskStatus[] = [
+  "paid",
+  "resolved",
+  "cancelled",
+  "refunded",
+];
 
 export type Role = "client" | "agent" | "arbiter" | "system";
 
@@ -99,7 +104,11 @@ export type TransitionError =
  * Checks whether `role` may perform `action` on a task in `status`.
  * Timing rules (deadlines, review windows) are enforced by the contract.
  */
-export function checkAction(action: Action, status: TaskStatus, role: Role): TransitionError | null {
+export function checkAction(
+  action: Action,
+  status: TaskStatus,
+  role: Role,
+): TransitionError | null {
   const rule = ACTIONS[action];
   if (!rule.roles.includes(role)) {
     return { code: "FORBIDDEN", message: `${role} cannot ${action} a task` };

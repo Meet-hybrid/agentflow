@@ -107,7 +107,9 @@ describe("csvAggregateSpecSchema", () => {
   it("rejects oversized input and bad column names", () => {
     const big = `region,amount\n${"x".repeat(MAX_CSV_BYTES)}`;
     expect(csvAggregateSpecSchema.safeParse(spec(big)).success).toBe(false);
-    expect(csvAggregateSpecSchema.safeParse(spec(csvA(), { groupBy: "a;drop" })).success).toBe(false);
+    expect(csvAggregateSpecSchema.safeParse(spec(csvA(), { groupBy: "a;drop" })).success).toBe(
+      false,
+    );
     expect(csvAggregateSpecSchema.safeParse(spec(csvA())).success).toBe(true);
   });
 });

@@ -19,7 +19,12 @@ describe("digest", () => {
   });
 
   it("submission digest changes with any bound field", async () => {
-    const base = { taskId: "t", attempt: 1, outputSha256: "a".repeat(64), specSha256: "b".repeat(64) };
+    const base = {
+      taskId: "t",
+      attempt: 1,
+      outputSha256: "a".repeat(64),
+      specSha256: "b".repeat(64),
+    };
     const d = await submissionDigest(base);
     expect(d).toMatch(/^[0-9a-f]{64}$/);
     expect(await submissionDigest({ ...base, attempt: 2 })).not.toBe(d);

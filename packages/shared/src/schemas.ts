@@ -3,7 +3,9 @@ import { z } from "zod";
 import { csvAggregateSpecSchema } from "./csv-aggregate.ts";
 import { TASK_STATUSES } from "./lifecycle.ts";
 
-export const stellarAddress = z.string().regex(/^G[A-Z2-7]{55}$/, "must be a Stellar account (G...)");
+export const stellarAddress = z
+  .string()
+  .regex(/^G[A-Z2-7]{55}$/, "must be a Stellar account (G...)");
 export const uuid = z.uuid();
 const hex32 = z.string().regex(/^[0-9a-f]{64}$/);
 
@@ -80,7 +82,15 @@ export const submissionRequest = z.object({
 });
 
 export const runEventRequest = z.object({
-  status: z.enum(["evaluating", "accepted", "declined", "executing", "succeeded", "failed", "submitted"]),
+  status: z.enum([
+    "evaluating",
+    "accepted",
+    "declined",
+    "executing",
+    "succeeded",
+    "failed",
+    "submitted",
+  ]),
   message: z.string().max(2000),
   detail: z.record(z.string(), z.unknown()).optional(),
 });

@@ -6,6 +6,9 @@
  * checks that what comes back is byte-for-byte the transaction it prepared,
  * submits it and tracks the outcome.
  */
+
+import type { ChainFn, OnchainState, OnchainTask } from "@agentflow/shared";
+import { ONCHAIN_STATES } from "@agentflow/shared";
 import {
   Account,
   Address,
@@ -19,8 +22,6 @@ import {
   TransactionBuilder,
   type xdr,
 } from "@stellar/stellar-sdk";
-import type { ChainFn, OnchainState, OnchainTask } from "@agentflow/shared";
-import { ONCHAIN_STATES } from "@agentflow/shared";
 
 /** Read-only simulations need a source account but never touch it. */
 const NULL_ACCOUNT = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
@@ -171,7 +172,10 @@ export class EscrowClient {
     const sim = await this.server.simulateTransaction(tx);
     if (rpc.Api.isSimulationError(sim)) {
       if (contractErrorFrom(sim.error) === "TaskNotFound") return null;
-      throw new EscrowError(`simulation of ${fn} failed: ${sim.error}`, contractErrorFrom(sim.error));
+      throw new EscrowError(
+        `simulation of ${fn} failed: ${sim.error}`,
+        contractErrorFrom(sim.error),
+      );
     }
     return sim.result?.retval ?? null;
   }

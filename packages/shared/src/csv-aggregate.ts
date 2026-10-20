@@ -223,6 +223,9 @@ export function runCsvAggregate(spec: CsvAggregateSpec): CsvAggregateOutput {
             return formatDecimal(acc.min as bigint, spec.decimals);
           case "max":
             return formatDecimal(acc.max as bigint, spec.decimals);
+
+          default:
+            throw new TaskInputError(`unsupported metric ${String(metric.op)}`);
         }
       }),
     ];

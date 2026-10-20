@@ -5,7 +5,9 @@ export function toBaseUnits(amount: string, decimals = 7): bigint {
   if (!m) throw new Error(`invalid amount: ${amount}`);
   const [, whole, frac = ""] = m;
   if (frac.length > decimals) throw new Error(`at most ${decimals} decimal places`);
-  return BigInt(whole as string) * 10n ** BigInt(decimals) + BigInt(frac.padEnd(decimals, "0") || "0");
+  return (
+    BigInt(whole as string) * 10n ** BigInt(decimals) + BigInt(frac.padEnd(decimals, "0") || "0")
+  );
 }
 
 export function fromBaseUnits(units: bigint, decimals = 7): string {
