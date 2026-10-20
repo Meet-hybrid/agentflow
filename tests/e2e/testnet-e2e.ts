@@ -298,7 +298,10 @@ try {
   // Simulation only records which authorizations are needed; enforcement
   // happens on submission. Sign the refund with the agent's key alone and
   // send it: the network must reject it and the escrow must be untouched.
-  const forged = await escrow.prepare(payout.publicKey(), { fn: "refund", taskId: b.body.onchainId });
+  const forged = await escrow.prepare(payout.publicKey(), {
+    fn: "refund",
+    taskId: b.body.onchainId,
+  });
   const forgedTx = TransactionBuilder.fromXDR(forged.xdr, PASS) as Transaction;
   forgedTx.sign(payout);
   const forgedSend = await escrow.send(forgedTx);
@@ -306,9 +309,15 @@ try {
   if (forgedSend.status === "PENDING") {
     forgedResult = (await escrow.server.pollTransaction(forged.hash, { attempts: 30 })).status;
   }
-  assert(forgedResult === "ERROR" || forgedResult === "FAILED", `forged refund must fail, got ${forgedResult}`);
+  assert(
+    forgedResult === "ERROR" || forgedResult === "FAILED",
+    `forged refund must fail, got ${forgedResult}`,
+  );
   assert((await escrow.readTask(b.body.onchainId))?.state === "Funded", "task B escrow untouched");
-  steps.push({ step: "B: agent-signed refund rejected by the network", detail: { tx: forged.hash, result: forgedResult } });
+  steps.push({
+    step: "B: agent-signed refund rejected by the network",
+    detail: { tx: forged.hash, result: forgedResult },
+  });
   log("B: double approval and an agent-signed refund were refused by the API and the contract");
 
   // ----- C. Interrupted request reconciled from chain ------------------------------

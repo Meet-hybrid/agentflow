@@ -25,7 +25,9 @@ function payoutSigner(): Signer {
   if (alias) return cliSigner(alias);
   const secret = resolveSecret("AGENT_PAYOUT_SECRET");
   if (!secret) {
-    throw new Error("set AGENT_PAYOUT_STELLAR_KEY (Stellar CLI identity), AGENT_PAYOUT_SECRET_FILE, or AGENT_PAYOUT_SECRET");
+    throw new Error(
+      "set AGENT_PAYOUT_STELLAR_KEY (Stellar CLI identity), AGENT_PAYOUT_SECRET_FILE, or AGENT_PAYOUT_SECRET",
+    );
   }
   return keypairSigner(secret);
 }

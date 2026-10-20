@@ -5,6 +5,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { keypairSigner } from "@agentflow/stellar";
 import { Keypair } from "@stellar/stellar-sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startWorker } from "../../../apps/api/src/worker.ts";
@@ -16,7 +17,6 @@ import {
   signIn,
   taskBody,
 } from "../../../apps/api/test/helpers.ts";
-import { keypairSigner } from "@agentflow/stellar";
 import { ReferenceAgent } from "../src/agent.ts";
 
 let h: Harness;

@@ -39,24 +39,9 @@
       "step": "A: agent executed in its sandbox and recorded the submission on-chain",
       "detail": {
         "output": [
-          [
-            "asia",
-            "7.10",
-            "7.10",
-            "1"
-          ],
-          [
-            "eu",
-            "10.75",
-            "5.38",
-            "2"
-          ],
-          [
-            "us",
-            "7.00",
-            "3.50",
-            "2"
-          ]
+          ["asia", "7.10", "7.10", "1"],
+          ["eu", "10.75", "5.38", "2"],
+          ["us", "7.00", "3.50", "2"]
         ],
         "evidence": "c91cc3d6d8889d209b9c0813bdea3aee78d4156bb9c46b0fed022ef9a45d4fed",
         "tx": "a66614ad815e7279ad91c868edbb1182d8bf1f7fc4932b8627e431319361c827"
