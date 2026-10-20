@@ -14,7 +14,8 @@ In scope: `contracts/escrow`, `apps/api` (including the worker), `apps/web`, `ag
 
 ## Status
 
-- Testnet only. The escrow contract has **not** been independently audited.
+- Testnet only; not safe for real funds. Neither the escrow contract nor the off-chain services have been independently audited.
+- Disputes are decided by a **single arbiter key** fixed per task at funding time. Its holder can split disputed funds arbitrarily, and a lost key or an inactive arbiter leaves disputed funds locked. Undisputed tasks are unaffected.
 - The threat model and known residual risks are in [docs/security/threat-model.md](docs/security/threat-model.md).
 
 ## Repository hygiene

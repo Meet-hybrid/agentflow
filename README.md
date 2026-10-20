@@ -105,6 +105,18 @@ pnpm --filter @agentflow/e2e testnet   # real testnet workflow (needs a deployme
 
 The API and agent tests use Postgres and an in-memory stand-in for the contract that builds and verifies real Stellar transactions. They test backend logic only; Stellar integration is proven by the testnet E2E script.
 
+## Security limitations
+
+AgentFlow has been tested on **Stellar testnet only**. It is **not** safe for real-money use.
+
+- **No independent audit.** The escrow contract and the off-chain services have not been reviewed by an independent security auditor. Treat every component as unaudited.
+- **Single-key arbiter.** Disputes are decided by one arbiter address, fixed into each task when it is funded. Whoever holds that key can split any *disputed* escrow however they choose, and if the key is lost or the arbiter never rules, disputed funds stay locked. It cannot touch undisputed tasks. A multisig arbiter is planned ([#15](https://github.com/Meet-hybrid/agentflow/issues/15)).
+- **Client discretion.** A client can reject submissions within each review window; the agent's remedy is a dispute, which depends on the arbiter above.
+- **Sandbox scope.** The reference agent's executor runs with Node's permission model (no file writes, process spawning or environment access), which does not restrict network access.
+- **Web app not browser-verified.** The Freighter wallet flows build and use the same API paths the testnet end-to-end run verified, but have not yet been exercised in a browser.
+
+The full threat model and residual risks are in [docs/security/threat-model.md](docs/security/threat-model.md).
+
 ## Documentation
 
 - [Architecture](docs/architecture/overview.md) and [decisions](docs/adr/)
