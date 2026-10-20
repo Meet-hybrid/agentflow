@@ -1,0 +1,21 @@
+name: Contributor task
+description: A scoped, independently testable piece of work
+labels: [task]
+body:
+  - type: textarea
+    id: scope
+    attributes: { label: Scope, description: "Exactly what to build or change, and what is out of scope." }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria, description: "Checkable statements, including the tests that must exist." }
+    validations: { required: true }
+  - type: textarea
+    id: deps
+    attributes: { label: Dependencies, description: "Issues that must be done first." }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [contract, api, web, agent, stellar-integration, testing, docs, tooling]
+    validations: { required: true }

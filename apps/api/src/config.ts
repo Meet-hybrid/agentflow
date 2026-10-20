@@ -1,3 +1,4 @@
+import { resolveSecret } from "@agentflow/stellar";
 import { z } from "zod";
 
 const assetSchema = z.object({
@@ -35,7 +36,11 @@ const envSchema = z.object({
 export type Config = z.infer<typeof envSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = envSchema.safeParse(env);
+  // The SEP-10 key may come from a file or the Stellar CLI keyring by alias.
+  const parsed = envSchema.safeParse({
+    ...env,
+    SEP10_SERVER_SECRET: resolveSecret("SEP10_SERVER_SECRET", env),
+  });
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`);
     throw new Error(`invalid configuration:\n${problems.join("\n")}`);

@@ -113,6 +113,24 @@ importers:
         specifier: 17.2.1
         version: 17.2.1
 
+  tests/e2e:
+    dependencies:
+      '@agentflow/api':
+        specifier: workspace:*
+        version: link:../../apps/api
+      '@agentflow/reference-agent':
+        specifier: workspace:*
+        version: link:../../agents/reference-agent
+      '@agentflow/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@agentflow/stellar':
+        specifier: workspace:*
+        version: link:../../packages/stellar
+      '@stellar/stellar-sdk':
+        specifier: 17.2.1
+        version: 17.2.1
+
 packages:
 
   '@biomejs/biome@2.5.15':

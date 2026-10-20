@@ -1,0 +1,17 @@
+{
+  "name": "@agentflow/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "testnet": "node --env-file-if-exists=../../.env testnet-e2e.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agentflow/reference-agent": "workspace:*",
+    "@agentflow/api": "workspace:*",
+    "@agentflow/shared": "workspace:*",
+    "@agentflow/stellar": "workspace:*",
+    "@stellar/stellar-sdk": "17.2.1"
+  }
+}
