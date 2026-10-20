@@ -22,7 +22,8 @@ async function payoutSecret(): Promise<string> {
   const file = process.env.AGENT_PAYOUT_SECRET_FILE;
   if (file) {
     const mode = (await stat(file)).mode & 0o777;
-    if (mode & 0o077) throw new Error(`${file} must not be readable by group or others (chmod 600)`);
+    if (mode & 0o077)
+      throw new Error(`${file} must not be readable by group or others (chmod 600)`);
     return (await readFile(file, "utf8")).trim();
   }
   const secret = process.env.AGENT_PAYOUT_SECRET;

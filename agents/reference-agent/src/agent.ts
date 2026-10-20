@@ -79,12 +79,21 @@ export class ReferenceAgent {
     this.api = new ApiClient({ baseUrl: cfg.apiUrl, token: cfg.apiKey });
     this.keypair = Keypair.fromSecret(cfg.payoutSecret);
     this.log =
-      cfg.log ?? ((e) => process.stdout.write(`${JSON.stringify({ ts: new Date().toISOString(), ...e })}\n`));
+      cfg.log ??
+      ((e) => process.stdout.write(`${JSON.stringify({ ts: new Date().toISOString(), ...e })}\n`));
   }
 
   /** Loads identity and network configuration; fails fast on mismatches. */
   async init() {
-    const me = await this.api.get<{ kind: string; agent: { id: string; name: string; payout_address: string; capabilities: { taskType: string; maxRows?: number }[] } }>("/me");
+    const me = await this.api.get<{
+      kind: string;
+      agent: {
+        id: string;
+        name: string;
+        payout_address: string;
+        capabilities: { taskType: string; maxRows?: number }[];
+      };
+    }>("/me");
     if (me.kind !== "agent") throw new Error("AGENTFLOW_AGENT_KEY is not an agent API key");
     if (me.agent.payout_address !== this.keypair.publicKey()) {
       throw new Error(
@@ -96,7 +105,12 @@ export class ReferenceAgent {
     this.escrowContract = config.escrowContractId;
     this.capabilities = me.agent.capabilities;
     await this.loadState();
-    this.log({ level: "info", event: "agent_ready", agent: me.agent.name, payout: me.agent.payout_address });
+    this.log({
+      level: "info",
+      event: "agent_ready",
+      agent: me.agent.name,
+      payout: me.agent.payout_address,
+    });
   }
 
   async runOnce() {
@@ -191,11 +205,19 @@ export class ReferenceAgent {
     await this.run(task.id, "executing", `executing attempt ${attempts}`);
     let result: Awaited<ReturnType<TaskExecutor["execute"]>>;
     try {
-      result = await executor.execute(task.spec, { timeoutMs: task.constraints.maxDurationSeconds * 1000 });
+      result = await executor.execute(task.spec, {
+        timeoutMs: task.constraints.maxDurationSeconds * 1000,
+      });
     } catch (e) {
       const kind = e instanceof SandboxError ? e.kind : "crashed";
       await this.run(task.id, "failed", (e as Error).message, { kind, attempt: attempts });
-      this.log({ level: "warn", event: "execution_failed", taskId: task.id, kind, error: (e as Error).message });
+      this.log({
+        level: "warn",
+        event: "execution_failed",
+        taskId: task.id,
+        kind,
+        error: (e as Error).message,
+      });
       // Invalid input never succeeds; transient failures are retried a few times.
       if (kind === "task_error" || attempts >= this.cfg.maxExecutionAttempts) {
         await this.chainOp(task, { action: "abandon" }, "abandon");
@@ -210,17 +232,30 @@ export class ReferenceAgent {
 
     // The idempotency key is stable per (task, rejection round), so a retry
     // after a crash returns the same submission instead of creating another.
-    const submission = await this.api.post<{ id: string; status: string; verification: { matches: boolean } }>(
-      `/tasks/${task.id}/submissions`,
-      { idempotencyKey: key, output: result.output, evidence: result.evidence },
-    );
+    const submission = await this.api.post<{
+      id: string;
+      status: string;
+      verification: { matches: boolean };
+    }>(`/tasks/${task.id}/submissions`, {
+      idempotencyKey: key,
+      output: result.output,
+      evidence: result.evidence,
+    });
     if (!submission.verification.matches) {
-      await this.run(task.id, "failed", "platform recomputation disagrees with this output; not submitting");
+      await this.run(
+        task.id,
+        "failed",
+        "platform recomputation disagrees with this output; not submitting",
+      );
       this.log({ level: "error", event: "verification_mismatch", taskId: task.id });
       return;
     }
     if (submission.status !== "pending_chain") return; // already recorded on-chain
-    const op = await this.chainOp(task, { action: "submit", submissionId: submission.id }, "submit");
+    const op = await this.chainOp(
+      task,
+      { action: "submit", submissionId: submission.id },
+      "submit",
+    );
     if (op?.status === "confirmed") {
       await this.run(task.id, "submitted", "submission recorded on-chain", { txHash: op.txHash });
       this.log({ level: "info", event: "submitted", taskId: task.id, txHash: op.txHash });
@@ -262,20 +297,32 @@ export class ReferenceAgent {
     if (Date.now() < due) return;
     const op = await this.chainOp(task, { action: "claim" }, "claim");
     if (op?.status === "confirmed") {
-      await this.run(task.id, "submitted", "claimed payment after the review window", { txHash: op.txHash });
+      await this.run(task.id, "submitted", "claimed payment after the review window", {
+        txHash: op.txHash,
+      });
     }
   }
 
   // ----- Chain operations --------------------------------------------------------
 
   /** Prepares, inspects, signs and submits a transaction, then waits for it. */
-  private async chainOp(task: Task, request: Record<string, unknown>, fn: string): Promise<ChainOp | null> {
+  private async chainOp(
+    task: Task,
+    request: Record<string, unknown>,
+    fn: string,
+  ): Promise<ChainOp | null> {
     let op: ChainOp;
     try {
       op = await this.api.post<ChainOp>(`/tasks/${task.id}/chain-ops`, request);
     } catch (e) {
       if (e instanceof ApiRequestError && e.status === 409) {
-        this.log({ level: "info", event: "chain_op_deferred", taskId: task.id, fn, reason: e.code });
+        this.log({
+          level: "info",
+          event: "chain_op_deferred",
+          taskId: task.id,
+          fn,
+          reason: e.code,
+        });
         return null;
       }
       throw e;
@@ -290,13 +337,23 @@ export class ReferenceAgent {
     });
     const tx = TransactionBuilder.fromXDR(op.xdr, this.network);
     tx.sign(this.keypair);
-    let current = await this.api.post<ChainOp>(`/chain-ops/${op.id}/signed`, { signedXdr: tx.toXdr() });
+    let current = await this.api.post<ChainOp>(`/chain-ops/${op.id}/signed`, {
+      signedXdr: tx.toXdr(),
+    });
     const until = Date.now() + 120_000;
     while (current.status === "submitted" && Date.now() < until) {
       await new Promise((r) => setTimeout(r, 3000));
       current = await this.api.get<ChainOp>(`/chain-ops/${op.id}`);
     }
-    this.log({ level: current.status === "confirmed" ? "info" : "warn", event: "chain_op", taskId: task.id, fn, status: current.status, txHash: current.txHash, error: current.error ?? undefined });
+    this.log({
+      level: current.status === "confirmed" ? "info" : "warn",
+      event: "chain_op",
+      taskId: task.id,
+      fn,
+      status: current.status,
+      txHash: current.txHash,
+      error: current.error ?? undefined,
+    });
     return current;
   }
 
@@ -306,11 +363,21 @@ export class ReferenceAgent {
     try {
       await fn();
     } catch (e) {
-      this.log({ level: "error", event: "task_error", taskId, error: e instanceof Error ? e.message : String(e) });
+      this.log({
+        level: "error",
+        event: "task_error",
+        taskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
-  private async run(taskId: string, status: string, message: string, detail?: Record<string, unknown>) {
+  private async run(
+    taskId: string,
+    status: string,
+    message: string,
+    detail?: Record<string, unknown>,
+  ) {
     await this.api.post(`/tasks/${taskId}/runs`, { status, message, detail }).catch(() => {});
   }
 
@@ -335,5 +402,7 @@ export class ReferenceAgent {
 }
 
 function countRows(output: unknown): number {
-  return Array.isArray((output as { rows?: unknown[] })?.rows) ? (output as { rows: unknown[] }).rows.length : 0;
+  return Array.isArray((output as { rows?: unknown[] })?.rows)
+    ? (output as { rows: unknown[] }).rows.length
+    : 0;
 }

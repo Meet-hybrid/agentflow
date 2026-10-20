@@ -29,7 +29,11 @@ export interface SandboxOptions {
   maxHeapMb?: number;
 }
 
-export function runSandboxed(entry: string, input: unknown, opts: SandboxOptions): Promise<unknown> {
+export function runSandboxed(
+  entry: string,
+  input: unknown,
+  opts: SandboxOptions,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
@@ -74,10 +78,14 @@ export function runSandboxed(entry: string, input: unknown, opts: SandboxOptions
           parsed = JSON.parse(stdout);
         } catch {
           return reject(
-            new SandboxError("crashed", `executor exited with code ${code}: ${stderr.trim().slice(0, 500)}`),
+            new SandboxError(
+              "crashed",
+              `executor exited with code ${code}: ${stderr.trim().slice(0, 500)}`,
+            ),
           );
         }
-        if (!parsed.ok) return reject(new SandboxError("task_error", parsed.error ?? "task failed"));
+        if (!parsed.ok)
+          return reject(new SandboxError("task_error", parsed.error ?? "task failed"));
         resolve(parsed.result);
       }),
     );

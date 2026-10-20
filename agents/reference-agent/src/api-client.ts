@@ -24,10 +24,19 @@ export class ApiClient {
   private readonly opts: Required<ApiClientOptions>;
 
   constructor(opts: ApiClientOptions) {
-    this.opts = { timeoutMs: 15_000, retries: 3, ...opts, baseUrl: opts.baseUrl.replace(/\/$/, "") };
+    this.opts = {
+      timeoutMs: 15_000,
+      retries: 3,
+      ...opts,
+      baseUrl: opts.baseUrl.replace(/\/$/, ""),
+    };
   }
 
-  async request<T = Record<string, unknown>>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T = Record<string, unknown>>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     let attempt = 0;
     for (;;) {
       try {
@@ -43,13 +52,19 @@ export class ApiClient {
         const text = await res.text();
         const json = text ? JSON.parse(text) : {};
         if (res.ok) return json as T;
-        const err = new ApiRequestError(res.status, json.error?.code ?? "HTTP_ERROR", json.error?.message ?? text);
+        const err = new ApiRequestError(
+          res.status,
+          json.error?.code ?? "HTTP_ERROR",
+          json.error?.message ?? text,
+        );
         // Retry only transient failures; 4xx responses are final.
         if (res.status < 500 && res.status !== 429) throw err;
         throw Object.assign(err, { retryable: true });
       } catch (e) {
         const retryable =
-          (e as { retryable?: boolean }).retryable || (e as Error).name === "TimeoutError" || e instanceof TypeError;
+          (e as { retryable?: boolean }).retryable ||
+          (e as Error).name === "TimeoutError" ||
+          e instanceof TypeError;
         if (!retryable || attempt >= this.opts.retries) throw e;
         attempt++;
         await sleep(500 * 2 ** attempt);
@@ -58,5 +73,6 @@ export class ApiClient {
   }
 
   get = <T = Record<string, unknown>>(path: string) => this.request<T>("GET", path);
-  post = <T = Record<string, unknown>>(path: string, body: unknown = {}) => this.request<T>("POST", path, body);
+  post = <T = Record<string, unknown>>(path: string, body: unknown = {}) =>
+    this.request<T>("POST", path, body);
 }

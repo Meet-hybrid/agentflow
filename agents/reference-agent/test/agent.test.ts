@@ -7,8 +7,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair } from "@stellar/stellar-sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { call, chainOp, type Harness, setup, signIn, taskBody } from "../../../apps/api/test/helpers.ts";
 import { startWorker } from "../../../apps/api/src/worker.ts";
+import {
+  call,
+  chainOp,
+  type Harness,
+  setup,
+  signIn,
+  taskBody,
+} from "../../../apps/api/test/helpers.ts";
 import { ReferenceAgent } from "../src/agent.ts";
 
 let h: Harness;
@@ -21,7 +28,10 @@ beforeAll(async () => {
   await h.app.listen({ port: 0, host: "127.0.0.1" });
   const address = h.app.server.address();
   url = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
-  stopWorker = startWorker({ db: h.db, chain: h.chain, log: { info() {}, warn() {}, error() {} } }, 150);
+  stopWorker = startWorker(
+    { db: h.db, chain: h.chain, log: { info() {}, warn() {}, error() {} } },
+    150,
+  );
 });
 afterAll(async () => {
   stopWorker?.();
@@ -54,7 +64,9 @@ async function openTask(overrides: Record<string, unknown> = {}) {
   const client = await signIn(h);
   const created = await call(h, "POST", "/tasks", client, taskBody(overrides));
   await chainOp(h, created.body.id, client, { action: "fund" });
-  await waitFor(async () => (await call(h, "GET", `/tasks/${created.body.id}`)).body.status === "open");
+  await waitFor(
+    async () => (await call(h, "GET", `/tasks/${created.body.id}`)).body.status === "open",
+  );
   return { client, id: created.body.id as string };
 }
 
@@ -94,7 +106,9 @@ describe("reference agent", () => {
     await agent.runOnce();
     const again = await call(h, "GET", `/tasks/${id}/history`, client);
     expect(again.body.submissions).toHaveLength(1);
-    expect(again.body.chainOps.filter((o: { action: string }) => o.action === "submit")).toHaveLength(1);
+    expect(
+      again.body.chainOps.filter((o: { action: string }) => o.action === "submit"),
+    ).toHaveLength(1);
 
     await chainOp(h, id, client, { action: "approve" });
     await waitFor(async () => (await status(id)) === "paid");
@@ -124,7 +138,9 @@ describe("reference agent", () => {
     await agent.runOnce();
     expect(await status(id)).toBe("disputed");
     const history = await call(h, "GET", `/tasks/${id}/history`, client);
-    expect(history.body.disputes[0].reason).toMatch(/matches the platform's deterministic recomputation/);
+    expect(history.body.disputes[0].reason).toMatch(
+      /matches the platform's deterministic recomputation/,
+    );
   });
 
   it("refuses to sign a transaction that is not the expected escrow call", async () => {
@@ -132,13 +148,18 @@ describe("reference agent", () => {
     const { client, id } = await openTask();
     await agent.runOnce();
     const apps = await call(h, "GET", `/tasks/${id}/applications`, client);
-    await chainOp(h, id, client, { action: "accept_application", applicationId: apps.body.at(-1).id });
+    await chainOp(h, id, client, {
+      action: "accept_application",
+      applicationId: apps.body.at(-1).id,
+    });
     await waitFor(async () => (await status(id)) === "assigned");
 
     // Point the agent at the wrong escrow contract: it must refuse to sign.
     (agent as unknown as { escrowContract: string }).escrowContract = "C".padEnd(56, "A");
     await agent.runOnce();
-    expect(logs.some((l) => l.taskId === id && String(l.error).includes("refusing to sign"))).toBe(true);
+    expect(logs.some((l) => l.taskId === id && String(l.error).includes("refusing to sign"))).toBe(
+      true,
+    );
     expect(await status(id)).toBe("in_progress");
   });
 });

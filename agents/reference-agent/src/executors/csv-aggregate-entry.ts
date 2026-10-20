@@ -15,6 +15,8 @@ process.stdin.on("end", () => {
     const spec = csvAggregateSpecSchema.parse(JSON.parse(input).spec);
     process.stdout.write(JSON.stringify({ ok: true, result: runCsvAggregate(spec) }));
   } catch (e) {
-    process.stdout.write(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+    process.stdout.write(
+      JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }),
+    );
   }
 });

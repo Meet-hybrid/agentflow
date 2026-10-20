@@ -41,7 +41,10 @@ export const csvAggregateExecutor: TaskExecutor = {
   evaluate(spec, limits) {
     const parsed = csvAggregateSpecSchema.safeParse(spec);
     if (!parsed.success) {
-      return { accept: false, reasons: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
+      return {
+        accept: false,
+        reasons: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+      };
     }
     const rows = parsed.data.csv.split("\n").length - 1;
     const reasons: string[] = [];
@@ -70,4 +73,6 @@ export const csvAggregateExecutor: TaskExecutor = {
   },
 };
 
-export const EXECUTORS: Record<string, TaskExecutor> = { [csvAggregateExecutor.taskType]: csvAggregateExecutor };
+export const EXECUTORS: Record<string, TaskExecutor> = {
+  [csvAggregateExecutor.taskType]: csvAggregateExecutor,
+};
