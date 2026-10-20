@@ -2,7 +2,7 @@
 
 Status: accepted
 
-**Context.** We need validated REST endpoints, explicit transaction boundaries and row locks to prevent races, and few dependencies (contributors from a bounty campaign; a recent supply-chain incident in a sister repo).
+**Context.** We need validated REST endpoints, explicit transaction boundaries and row locks to prevent races, and few dependencies (the project is open to outside contributors, and a recent supply-chain incident hit a sister repo).
 
 **Decision.** Fastify 5 with request validation through the shared Zod schemas (the same schemas generate `/openapi.json`). Persistence uses `pg` with SQL migrations and explicit `select … for update`, partial unique indexes and advisory-locked migrations. NestJS was rejected as heavier to learn; Prisma because its current `latest` tag was a release candidate, it needs install scripts and engine binaries, and its abstractions hide the locking this design relies on.
 
