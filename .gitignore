@@ -16,7 +16,9 @@ contracts/**/test_snapshots/
 !.env.example
 *.pem
 *.key
-secret*
+*.secret
+secrets/
+.secrets/
 .stellar/
 
 # Editors (auto-run task configs are a known malware vector; see SECURITY.md)

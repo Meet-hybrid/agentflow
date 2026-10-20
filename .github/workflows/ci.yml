@@ -34,7 +34,16 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
-      - run: cargo build --locked --release --target wasm32v1-none
+      - name: Install stellar-cli 28.0.0 (pinned, checksum-verified)
+        # soroban-sdk 29 only builds WASM through stellar-cli (25.2+).
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSfL -o /tmp/stellar-cli.tgz \
+            https://github.com/stellar/stellar-cli/releases/download/v28.0.0/stellar-cli-28.0.0-x86_64-unknown-linux-gnu.tar.gz
+          echo "207544486734fccb4df1afc4a7745478f9f1e21688b2f9506f0ef36f60ce3fdc  /tmp/stellar-cli.tgz" | sha256sum -c -
+          tar -xzf /tmp/stellar-cli.tgz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: stellar contract build --locked
 
   typescript:
     name: TypeScript
