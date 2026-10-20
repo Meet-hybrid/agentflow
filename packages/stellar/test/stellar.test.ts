@@ -203,3 +203,41 @@ describe("SEP-10", () => {
     expect(() => verifyChallenge(config, tx.toXdr())).toThrow();
   });
 });
+
+describe("inspectEscrowTx", () => {
+  const signer = Keypair.random();
+  const expected = {
+    contractId: CONTRACT,
+    fn: "approve",
+    taskId: TASK,
+    source: signer.publicKey(),
+    maxFee: 10_000_000n,
+  };
+
+  it("decodes the invocation and accepts the expected call", async () => {
+    const { assertEscrowTx, inspectEscrowTx } = await import("../src/index.ts");
+    const inv = inspectEscrowTx(buildTx(signer).toXdr(), PASS);
+    expect(inv).toMatchObject({ source: signer.publicKey(), contractId: CONTRACT, fn: "approve", args: [TASK] });
+    expect(() => assertEscrowTx(inv, expected)).not.toThrow();
+  });
+
+  it("refuses another function, task, contract, source or an excessive fee", async () => {
+    const { assertEscrowTx, inspectEscrowTx } = await import("../src/index.ts");
+    const inv = inspectEscrowTx(buildTx(signer).toXdr(), PASS);
+    expect(() => assertEscrowTx(inv, { ...expected, fn: "submit" })).toThrow(/function/);
+    expect(() => assertEscrowTx(inv, { ...expected, taskId: "cd".repeat(32) })).toThrow(/task id/);
+    expect(() => assertEscrowTx(inv, { ...expected, contractId: StrKey.encodeContract(Buffer.alloc(32, 8)) })).toThrow(/escrow/);
+    expect(() => assertEscrowTx(inv, { ...expected, source: Keypair.random().publicKey() })).toThrow(/source/);
+    expect(() => assertEscrowTx(inv, { ...expected, maxFee: 1n })).toThrow(/fee/);
+  });
+
+  it("refuses a transaction with extra operations", async () => {
+    const { inspectEscrowTx } = await import("../src/index.ts");
+    const tx = new TransactionBuilder(new Account(signer.publicKey(), "1"), { fee: BASE_FEE, networkPassphrase: PASS })
+      .addOperation(new Contract(CONTRACT).call("approve", bytes32(TASK)))
+      .addOperation(new Contract(CONTRACT).call("refund", bytes32(TASK)))
+      .setTimeout(300)
+      .build();
+    expect(() => inspectEscrowTx(tx.toXdr(), PASS)).toThrow(/1 operation/);
+  });
+});
