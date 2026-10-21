@@ -1,2 +1,26 @@
 # Every change needs maintainer review.
 * @Meet-hybrid
+
+# Paths that can run code on a contributor's machine, in CI, or at install or
+# build time. Listed explicitly so they stay owned if the default rule changes.
+.github/ @Meet-hybrid
+scripts/ @Meet-hybrid
+.vscode/ @Meet-hybrid
+.devcontainer/ @Meet-hybrid
+.idea/ @Meet-hybrid
+.npmrc @Meet-hybrid
+**/package.json @Meet-hybrid
+pnpm-lock.yaml @Meet-hybrid
+pnpm-workspace.yaml @Meet-hybrid
+contracts/Cargo.toml @Meet-hybrid
+contracts/Cargo.lock @Meet-hybrid
+contracts/deny.toml @Meet-hybrid
+**/build.rs @Meet-hybrid
+*.woff @Meet-hybrid
+*.woff2 @Meet-hybrid
+*.eot @Meet-hybrid
+*.ttf @Meet-hybrid
+*.otf @Meet-hybrid
+*.bat @Meet-hybrid
+*.cmd @Meet-hybrid
+*.ps1 @Meet-hybrid

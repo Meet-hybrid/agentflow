@@ -1,0 +1,76 @@
+name: ForgeGuard
+
+# ForgeGuard scans every open pull request for supply-chain malware patterns
+# and merges a PR only once it is approved by a maintainer, green in CI and
+# clean in the scan. It never approves and never bypasses branch protection.
+# See docs/FORGEGUARD.md.
+#
+# This runs in the base repository and never checks out or
+# executes pull request code: PR heads are fetched as git objects and read by
+# scripts/forgeguard/scan-pr.sh from the default branch. `pull_request_target`
+# and `pull_request_review` are deliberately avoided.
+#
+# Note: `workflow_run` and `schedule` only fire once this file exists on the
+# default branch.
+
+on:
+  # Re-evaluate as soon as CI finishes on a pull request.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  # Approvals arrive after CI, so sweep open PRs periodically as well.
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Only process this pull request number (blank = all open PRs)"
+        required: false
+        type: string
+      dry_run:
+        description: "Report only; do not post statuses, comment or merge"
+        required: false
+        type: boolean
+        default: false
+
+# Deny all permissions by default; the job grants only what it needs.
+permissions: {}
+
+# Merges change the base branch, so never run two sweeps at once.
+concurrency:
+  group: forgeguard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: ForgeGuard scan and merge
+    if: >-
+      github.event_name != 'workflow_run'
+      || github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # merge pull requests
+      pull-requests: write # read reviews, post the scan comment, merge
+      statuses: write # publish the ForgeGuard / malware-scan status
+      checks: read # read CI results on the PR head
+    steps:
+      # Check out the DEFAULT BRANCH only. This job runs with write
+      # permissions, so it must never check out the pull request head.
+      - name: Check out default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan and merge ready pull requests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORGEGUARD_REPO: ${{ github.repository }}
+          FORGEGUARD_PR: ${{ inputs.pr }}
+          FORGEGUARD_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          FORGEGUARD_BRANCHES: "main"
+          FORGEGUARD_MERGE_METHOD: squash
+          FORGEGUARD_REQUIRED_CHECKS: "Repo hygiene,Contract,TypeScript,Security Audit"
+          FORGEGUARD_IGNORED_CHECKS: "^Vercel"
+        run: bash scripts/forgeguard/merge.sh

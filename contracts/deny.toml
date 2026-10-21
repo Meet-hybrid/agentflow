@@ -1,0 +1,43 @@
+# Dependency policy for the escrow contract workspace (cargo-deny 0.20).
+#
+# Run locally from contracts/:
+#   cargo deny check sources bans licenses advisories
+#
+# Every exception must carry a comment explaining why it is justified.
+
+[graph]
+all-features = true
+
+[advisories]
+# RustSec advisories are also checked by `cargo audit` in the Security Audit
+# workflow. Here, yanked crates fail and unmaintained crates are reported for
+# direct dependencies of this workspace only.
+yanked = "deny"
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+# Permissive licenses only. Copyleft (GPL, AGPL, LGPL, MPL, SSPL) is not allowed.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Unicode-3.0",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+# Wildcard version requirements are not allowed for registry dependencies.
+wildcards = "deny"
+allow-wildcard-paths = true
+multiple-versions = "warn"
+
+[sources]
+# Only crates.io. No git dependencies and no alternative registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
