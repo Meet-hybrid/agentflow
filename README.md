@@ -52,8 +52,8 @@ sequenceDiagram
 | Submission verification by deterministic recomputation | ✅ |
 | Prepare → sign → submit → confirm flow with idempotency, one in-flight tx per task, reconciliation and event indexing | ✅ |
 | Web app: marketplace, task creation, funding, review, disputes, arbiter queue, history with explorer links | ✅ |
-| Testnet end-to-end workflow (real transactions): happy path, forged refund rejected on-chain, reconciliation after a bypassed API, dispute resolved by the arbiter | ✅ passed 2026-10-20, evidence in [`deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json`](deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json) |
-| Web app wallet flows (Freighter) | ⚠️ builds and calls the same API paths the E2E verifies; not yet clicked through in a browser with Freighter |
+| Testnet end-to-end workflow (real transactions): happy path, forged refund rejected on-chain, reconciliation after a bypassed API, dispute resolved by the arbiter | ✅ passed 2026-10-21, evidence in [`deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json`](deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json) |
+| Web app wallet flows (Freighter) | ⚠️ Freighter sign-in and marketplace browsing checked manually in a browser (2026-10-20); task funding, review and dispute flows call the same API paths the E2E verifies but have not yet been clicked through in a browser |
 | More task types, LLM-backed agents, reputation, x402 tool payments, multisig arbiter | Planned, see [ROADMAP](ROADMAP.md) |
 
 Supported task type: **`csv-aggregate`**, grouped count/sum/avg/min/max over an inline CSV, computed with exact decimal arithmetic so anyone can recompute and verify the result. It was chosen because it is genuinely executable and independently checkable; see its [limitations](docs/agents/README.md#csv-aggregate).

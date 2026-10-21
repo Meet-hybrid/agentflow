@@ -76,7 +76,8 @@ const workerLog = {
   warn: (o: unknown) => console.warn("worker:", o),
   error: (o: unknown) => console.error("worker:", o),
 };
-const stopWorker = startWorker({ db, chain, events: chain.client, log: workerLog }, 3000);
+const workerDeps = { db, chain, events: chain.client, log: workerLog };
+let stopWorker = startWorker(workerDeps, 3000);
 const escrow = new EscrowClient({
   rpcUrl: config.STELLAR_RPC_URL,
   networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
@@ -321,6 +322,9 @@ try {
   log("B: double approval and an agent-signed refund were refused by the API and the contract");
 
   // ----- C. Interrupted request reconciled from chain ------------------------------
+  // Pause the background worker so this scenario exercises reconciliation
+  // itself; otherwise its event indexer can record the refund first.
+  await stopWorker();
   const prep = await http("POST", `/tasks/${b.body.id}/chain-ops`, clientToken, {
     action: "refund",
   });
@@ -334,6 +338,7 @@ try {
   await reconcileTasks({ db, chain, log: workerLog }, 0);
   assert((await status(b.body.id)) === "refunded", "reconciliation should mark task B refunded");
   log("C: refund sent outside the API was reconciled from chain state", { tx: sent.hash });
+  stopWorker = startWorker(workerDeps, 3000);
 
   // ----- D. Rejection, dispute, arbiter ruling -----------------------------------------
   const d = await http("POST", "/tasks", clientToken, task("E2E D: disputed work", "4"));

@@ -109,8 +109,10 @@ export function startWorker(deps: WorkerDeps, intervalMs = 4000) {
       await new Promise((r) => setTimeout(r, intervalMs));
     }
   };
-  void loop();
-  return () => {
+  const finished = loop();
+  // Resolves once the in-flight iteration (if any) has completed.
+  return async () => {
     stopped = true;
+    await finished;
   };
 }

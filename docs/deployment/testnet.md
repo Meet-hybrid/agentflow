@@ -11,7 +11,7 @@ Everything here uses **Stellar testnet** and Friendbot test XLM. No real funds.
 | Arbiter | `GAI5MOCF2NQWICQXGEQ4V6UXW72FNFW7XRDZ43ZWUO2OVWH4CXIEWIO7` |
 | Review window | 600 seconds |
 | Allowed asset | native XLM (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`) |
-| Last E2E run | [`deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json`](../../deployments/e2e-testnet-2026-10-20T15-10-37-383Z.json): all four scenarios passed with real transactions |
+| Last E2E run | [`deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json`](../../deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json): all four scenarios passed with real transactions |
 
 ## 1. Deploy the contract
 

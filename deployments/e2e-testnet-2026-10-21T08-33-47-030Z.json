@@ -1,0 +1,86 @@
+{
+  "network": "testnet",
+  "contractId": "CBT4QNZ7V3FYJIYYA26Y3OJZZL42RMDDX6IEAMDTDMGSGCDNYIN3YQKH",
+  "steps": [
+    {
+      "step": "funded fresh testnet accounts with Friendbot",
+      "detail": {
+        "client": "GBX6TEGPIW37RPJHXVTSYFSUAR47FMTQWHRLL64ENDFN5VX2NRE2GFV7",
+        "operator": "GCBG32ZVB6JDUMNQFRMJRFWQQ5X5UVKDGKVWSQNHYAXODCM7V67HOIPV",
+        "agentPayout": "GDH5SKIEKP4UZ7Q7QBFVUXJXJDRO3AFZIVQTBEQTPQUTE3X7LDYLKZ6R"
+      }
+    },
+    {
+      "step": "client and operator signed in with SEP-10"
+    },
+    {
+      "step": "registered the reference agent",
+      "detail": {
+        "agentId": "5c3582db-5afc-4d9b-a906-049cb2423601"
+      }
+    },
+    {
+      "step": "A: client funded the escrow (real tx)",
+      "detail": {
+        "tx": "625fee48d0ceb6010f0a672ab6b491cfa663cffa36d6243b4d38b9efe67e96e2",
+        "onchain": "Funded"
+      }
+    },
+    {
+      "step": "A: agent discovered the task, evaluated it and applied"
+    },
+    {
+      "step": "A: client assigned the agent on-chain",
+      "detail": {
+        "tx": "09739eec80f2aaa1fe73b624bcd29d310c15cd5132aebf59a8270afb2cb9fa39"
+      }
+    },
+    {
+      "step": "A: agent executed in its sandbox and recorded the submission on-chain",
+      "detail": {
+        "output": [
+          ["asia", "7.10", "7.10", "1"],
+          ["eu", "10.75", "5.38", "2"],
+          ["us", "7.00", "3.50", "2"]
+        ],
+        "evidence": "c77ae029cf8c6b315fa7c509a81a306894cf247f9e813ca80c700beef32ae705",
+        "tx": "e72c14b2da7d1059f8aff92a8505566f57cc04b5a074b3eac66eca8d7fe69e31"
+      }
+    },
+    {
+      "step": "A: client approved; contract released exactly 10 XLM to the agent",
+      "detail": {
+        "tx": "cbfff68279b20a803b66a472f8e6583466efb0129b6c67c50727100a67e88b2f",
+        "payoutDelta": "100000000"
+      }
+    },
+    {
+      "step": "B: agent-signed refund rejected by the network",
+      "detail": {
+        "tx": "a36cf2692a5f9d9cc13624e2fbe7879cfe1003e99101e7e241742c4e183a743e",
+        "result": "FAILED"
+      }
+    },
+    {
+      "step": "B: double approval and an agent-signed refund were refused by the API and the contract"
+    },
+    {
+      "step": "C: refund sent outside the API was reconciled from chain state",
+      "detail": {
+        "tx": "21d1856f68a68f2db25a03a0b0a73efb4caef4ef28da998c4830d27abc289a90"
+      }
+    },
+    {
+      "step": "D: client rejected verified work; the agent disputed on-chain",
+      "detail": {
+        "rejectTx": "88b58633eafba2e019badaaaa7860295765529299416197a500d8bb3155297db"
+      }
+    },
+    {
+      "step": "D: arbiter resolved 50/50; each party received exactly 2 XLM",
+      "detail": {
+        "tx": "b7e4b3d1cf77331353c7ddc7da7f15a0dff17db48ad9f5993fbed129ae23b168"
+      }
+    }
+  ]
+}
