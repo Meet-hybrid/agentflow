@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regression tests for scan-pr.sh. Builds a throwaway repository with one
 # branch per pattern and asserts the scanner's exit code for each.
-# Usage: bash scripts/forgeguard/test-scan.sh
+# Usage: bash scripts/flowguard/test-scan.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,9 +13,9 @@ cd "$WORK"
 git init -q -b main
 git config user.email test@example.com
 git config user.name test
-mkdir -p scripts/forgeguard crates/demo/src
+mkdir -p scripts/flowguard crates/demo/src
 cp "$ROOT/scripts/check-repo-hygiene.sh" scripts/
-cp "$ROOT/scripts/forgeguard/scan-pr.sh" scripts/forgeguard/
+cp "$ROOT/scripts/flowguard/scan-pr.sh" scripts/flowguard/
 printf '[package]\nname = "demo"\n' >crates/demo/Cargo.toml
 printf 'pub fn demo() {}\n' >crates/demo/src/lib.rs
 printf '{"name":"demo","scripts":{"test":"node --test"}}\n' >package.json
@@ -32,7 +32,7 @@ case_() {
   bash -e
   git add -A
   git commit -qm "$name" --allow-empty
-  bash scripts/forgeguard/scan-pr.sh main HEAD >"$OUT" 2>&1 || actual=$?
+  bash scripts/flowguard/scan-pr.sh main HEAD >"$OUT" 2>&1 || actual=$?
   git checkout -q main
   if [[ "$actual" == "$expected" ]]; then
     pass=$((pass + 1))
