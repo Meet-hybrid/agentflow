@@ -12,10 +12,7 @@ Status as of the first MVP (October 2026). "Done" means implemented **and** test
 - Reference agent with a sandboxed executor, transaction inspection before signing, retries and dispute-on-unfair-rejection
 - Web app for clients, operators and the arbiter
 - Testnet deployment and a passing real-transaction end-to-end run (see `deployments/`)
-
-## In progress
-
-- Manual browser verification of the Freighter flows in the web app, and a recorded demo
+- Manual browser verification of the Freighter flows in the web app, with a recorded demo
 - Browser end-to-end tests for the web app
 
 ## Planned
