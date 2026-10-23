@@ -6,7 +6,7 @@
 # Usage: check-repo-hygiene.sh [REF]
 #   With no REF, checks the files tracked in the working tree.
 #   With a REF, checks that commit's tree straight from the object database,
-#   without checking it out (used by ForgeGuard on untrusted PR heads).
+#   without checking it out (used by FlowGuard on untrusted PR heads).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -1,0 +1,64 @@
+name: FlowReview
+
+# FlowReview posts one advisory review comment per pull request after CI
+# finishes: where a maintainer should look closely (build scripts, dependency
+# and automation changes, removed authorization checks, upgrade paths, panics,
+# missing tests) plus an optional AI summary. It never approves, never merges
+# and never bypasses human review. See docs/FLOWREVIEW.md.
+#
+# Like FlowBot it runs on `workflow_run`, so it works for fork pull requests
+# with base-repository permissions while never checking out or executing
+# contributor-controlled code: the PR head is fetched as git objects only.
+#
+# Note: `workflow_run` only fires once this file exists on the default branch.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  # Manual re-review for a specific CI run; useful to test or refresh a comment.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID of an existing CI workflow run to review"
+        required: true
+        type: string
+
+# Deny all permissions by default; the job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: flowreview-${{ github.event.workflow_run.head_sha || inputs.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: FlowReview
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # read repository files and fetch the PR as git objects
+      actions: read # read the CI workflow run
+      pull-requests: write # create/update the single review comment
+    steps:
+      # Check out the DEFAULT BRANCH only. This workflow can read the
+      # ANTHROPIC_API_KEY secret, so it must never check out the PR head.
+      - name: Check out default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FLOWREVIEW_REPO: ${{ github.repository }}
+          FLOWREVIEW_RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          FLOWREVIEW_LOGIN: "github-actions[bot]"
+          # Optional: without this secret FlowReview posts the rules-only review.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: bash scripts/flowreview/review.sh

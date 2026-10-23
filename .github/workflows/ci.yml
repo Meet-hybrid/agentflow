@@ -15,8 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: bash scripts/check-repo-hygiene.sh
-      - name: ForgeGuard scanner regression tests
-        run: bash scripts/forgeguard/test-scan.sh
+      - name: FlowGuard scanner regression tests
+        run: bash scripts/flowguard/test-scan.sh
+      - name: FlowReview regression tests
+        run: bash scripts/flowreview/test-review.sh
 
   contract:
     name: Contract

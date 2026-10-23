@@ -1,0 +1,68 @@
+name: FlowBot
+
+# FlowBot reports the outcome of the repository's EXISTING CI workflow on pull
+# requests and keeps a single sticky status comment up to date on each PR.
+# It never approves, never merges, and never bypasses human review.
+# See docs/FLOWBOT.md. FlowBot is a AgentFlow automation tool and is NOT
+# an official Drips or Stellar bot.
+#
+# Why `workflow_run` instead of `pull_request_target`?
+#   - `workflow_run` fires after CI completes and lets this job run in the base
+#     repository with the narrow write permissions it needs, including for pull
+#     requests opened from forks.
+#   - This job never checks out or executes contributor-controlled code, so no
+#     untrusted PR code ever runs with repository write credentials.
+#   - `pull_request_target` with a PR checkout is deliberately avoided.
+#
+# Note: `workflow_run` only fires once this file exists on the default branch.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  # Manual re-report for a specific CI run; useful to test or refresh a comment.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID of an existing CI workflow run to report on"
+        required: true
+        type: string
+
+# Deny all permissions by default; each job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: flowbot-${{ github.event.workflow_run.head_sha || inputs.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  status:
+    name: FlowBot status report
+    # Only pull-request CI runs are reported; branch pushes are ignored.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # read repository files on the default branch
+      actions: read # read the CI workflow run and its job results
+      pull-requests: write # create/update the sticky comment on the pull request
+      statuses: write # publish the informational FlowBot commit status
+    steps:
+      # Check out the DEFAULT BRANCH only. This workflow runs with write
+      # permissions, so it must never check out the pull request head.
+      - name: Check out default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Report pull request status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FLOWBOT_REPO: ${{ github.repository }}
+          FLOWBOT_RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          FLOWBOT_LOGIN: "github-actions[bot]"
+          FLOWBOT_BASE_BRANCH: main
+          FLOWBOT_CI_WORKFLOW: ci.yml
+        run: bash scripts/flowbot/status-report.sh

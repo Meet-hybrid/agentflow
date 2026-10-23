@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ForgeGuard — pull-request malware scanner.
+# FlowGuard — pull-request malware scanner.
 #
 # Scans the changes a pull request introduces (merge-base of BASE..HEAD) for
 # the patterns used by supply-chain malware: auto-run editor tasks, payloads
@@ -18,7 +18,7 @@
 # Finding text never includes file content, only paths and line numbers.
 #
 # Exit codes: 0 = clean, 1 = REVIEW findings only, 2 = BLOCK findings,
-# 3 = ForgeGuard could not run.
+# 3 = FlowGuard could not run.
 
 set -euo pipefail
 export LC_ALL=C.UTF-8
@@ -27,7 +27,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 die() {
-  printf 'forgeguard: %s\n' "$*" >&2
+  printf 'flowguard: %s\n' "$*" >&2
   exit 3
 }
 
