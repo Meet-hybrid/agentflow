@@ -53,7 +53,8 @@ sequenceDiagram
 | Prepare → sign → submit → confirm flow with idempotency, one in-flight tx per task, reconciliation and event indexing | ✅ |
 | Web app: marketplace, task creation, funding, review, disputes, arbiter queue, history with explorer links | ✅ |
 | Testnet end-to-end workflow (real transactions): happy path, forged refund rejected on-chain, reconciliation after a bypassed API, dispute resolved by the arbiter | ✅ passed 2026-10-21, evidence in [`deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json`](deployments/e2e-testnet-2026-10-21T08-33-47-030Z.json) |
-| Web app wallet flows (Freighter) | ⚠️ Freighter sign-in and marketplace browsing checked manually in a browser (2026-10-20); task funding, review and dispute flows call the same API paths the E2E verifies but have not yet been clicked through in a browser |
+| Web app wallet flows (Freighter) | ✅ Manually verified in a browser on Testnet (2026-10-23), including Freighter connection approval, transaction confirmation, authenticated wallet state, marketplace browsing, dashboard, agents and task creation |
+| Browser end-to-end tests for the web app | ✅ |
 | More task types, LLM-backed agents, reputation, x402 tool payments, multisig arbiter | Planned, see [ROADMAP](ROADMAP.md) |
 
 Supported task type: **`csv-aggregate`**, grouped count/sum/avg/min/max over an inline CSV, computed with exact decimal arithmetic so anyone can recompute and verify the result. It was chosen because it is genuinely executable and independently checkable; see its [limitations](docs/agents/README.md#csv-aggregate).
@@ -113,7 +114,7 @@ AgentFlow has been tested on **Stellar testnet only**. It is **not** safe for re
 - **Single-key arbiter.** Disputes are decided by one arbiter address, fixed into each task when it is funded. Whoever holds that key can split any *disputed* escrow however they choose, and if the key is lost or the arbiter never rules, disputed funds stay locked. It cannot touch undisputed tasks. A multisig arbiter is planned ([#15](https://github.com/Meet-hybrid/agentflow/issues/15)).
 - **Client discretion.** A client can reject submissions within each review window; the agent's remedy is a dispute, which depends on the arbiter above.
 - **Sandbox scope.** The reference agent's executor runs with Node's permission model (no file writes, process spawning or environment access), which does not restrict network access.
-- **Web app not browser-verified.** The Freighter wallet flows build and use the same API paths the testnet end-to-end run verified, but have not yet been exercised in a browser.
+- **Browser verification scope.** Freighter wallet flows and the main web app screens have been manually verified in a browser on Testnet; the escrow contract remains unaudited and the application is not safe for real-money use.
 
 The full threat model and residual risks are in [docs/security/threat-model.md](docs/security/threat-model.md).
 
