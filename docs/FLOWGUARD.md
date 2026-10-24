@@ -70,7 +70,13 @@ listing the findings, and updates it in place on later runs.
 ## How it runs
 
 `.github/workflows/flowguard.yml` runs when CI completes on a pull request,
-every 30 minutes (to pick up approvals), and on demand from the Actions tab.
+right after a maintainer approves one, every 30 minutes as a backstop, and on
+demand from the Actions tab.
+
+Approvals reach FlowGuard through `.github/workflows/flowguard-trigger.yml`.
+A `pull_request_review` run only gets a read-only token on fork pull requests,
+so that workflow has no permissions and does nothing but finish; FlowGuard
+picks it up via `workflow_run` and runs from the default branch as usual.
 The manual run takes an optional PR number and a dry-run switch.
 
 The job checks out the **default branch** and runs the scanner from there. Pull
