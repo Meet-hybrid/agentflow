@@ -1,0 +1,27 @@
+# FlowGuard Trigger — wakes FlowGuard as soon as a maintainer approves.
+#
+# See docs/FLOWGUARD.md.
+#
+# A `pull_request_review` run only gets a read-only token on fork PRs, so it
+# cannot merge. This workflow therefore does nothing but finish; FlowGuard
+# listens for it via `workflow_run` and does the real work from the default
+# branch with its own permissions. It has no permissions and runs no PR code.
+
+name: FlowGuard Trigger
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Approval received
+    if: github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      # Quoted so the "#" is not read as the start of a YAML comment.
+      - run: 'echo "Approval on PR #${PR}; FlowGuard will sweep open pull requests."'
+        env:
+          PR: ${{ github.event.pull_request.number }}
