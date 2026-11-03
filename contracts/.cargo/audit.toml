@@ -1,0 +1,12 @@
+# cargo-audit configuration (read by `cargo audit` and rustsec/audit-check).
+[advisories]
+ignore = [
+  # RUSTSEC-2026-0387 — crypto-bigint timing side channels (published 2026-10-23).
+  # Pulled in only transitively: soroban-sdk -> soroban-env-host -> p256/k256/ecdsa
+  # -> elliptic-curve 0.13 -> crypto-bigint 0.5.5. The fix exists only in 0.7.6+,
+  # which needs elliptic-curve 0.14; there is no patched 0.5.x and nothing we can
+  # bump locally. In this workspace the host is only used natively by tests, and
+  # on-chain the validators run their own host, so no secret material we hold is
+  # processed by the affected code. Remove once soroban-sdk ships elliptic-curve 0.14.
+  "RUSTSEC-2026-0387",
+]

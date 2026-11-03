@@ -14,7 +14,10 @@ all-features = true
 # direct dependencies of this workspace only.
 yanked = "deny"
 unmaintained = "workspace"
-ignore = []
+ignore = [
+  # Transitive via soroban-env-host; no patched 0.5.x. See .cargo/audit.toml.
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5.5 via soroban-env-host; fix requires upstream elliptic-curve 0.14" },
+]
 
 [licenses]
 # Permissive licenses only. Copyleft (GPL, AGPL, LGPL, MPL, SSPL) is not allowed.
