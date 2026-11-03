@@ -1,8 +1,10 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": { "includes": ["**", "!contracts", "!**/dist", "!**/*.generated.*"] },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "markdown": { "formatter": { "enabled": false } },
+  "yaml": { "formatter": { "enabled": false } },
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
   "linter": {
     "enabled": true,
