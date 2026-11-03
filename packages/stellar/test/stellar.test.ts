@@ -34,7 +34,10 @@ function buildTx(source: Keypair, fn = "approve") {
     networkPassphrase: PASS,
   })
     .addOperation(new Contract(CONTRACT).call(fn, bytes32(TASK)))
-    .setTimeout(300)
+    // Fixed time bounds keep the hash deterministic: setTimeout() stamps the
+    // current second into the tx, so two "identical" builds straddling a second
+    // boundary hashed differently and the verifySigned tests flaked.
+    .setTimebounds(0, 4_102_444_800)
     .build();
 }
 const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
