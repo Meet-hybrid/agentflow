@@ -28,15 +28,15 @@ const PASS = Networks.TESTNET;
 const CONTRACT = StrKey.encodeContract(Buffer.alloc(32, 7));
 const TASK = "ab".repeat(32);
 
+// Fixed time bounds keep the hash deterministic: setTimeout() stamps the
+// current second into the tx, so a fixture built at collection time and a
+// rebuild later in a test hashed differently and the verifySigned tests failed.
 function buildTx(source: Keypair, fn = "approve") {
   return new TransactionBuilder(new Account(source.publicKey(), "41"), {
     fee: BASE_FEE,
     networkPassphrase: PASS,
   })
     .addOperation(new Contract(CONTRACT).call(fn, bytes32(TASK)))
-    // Fixed time bounds keep the hash deterministic: setTimeout() stamps the
-    // current second into the tx, so two "identical" builds straddling a second
-    // boundary hashed differently and the verifySigned tests flaked.
     .setTimebounds(0, 4_102_444_800)
     .build();
 }
