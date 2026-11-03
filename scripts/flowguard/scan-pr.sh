@@ -154,8 +154,9 @@ match() {
   while IFS= read -r loc; do
     [[ -n "$loc" ]] && "$level" "$loc" "$reason"
   done < <(grep -nP -- "$text_re" "$added_text" 2>/dev/null | cut -d: -f1 \
-    | awk -F'\t' -v re="$path_re" '
-        BEGIN { neg = substr(re, 1, 1) == "!"; if (neg) re = substr(re, 2) }
+    | PATH_RE="$path_re" awk -F'\t' '
+        # Read the regex from ENVIRON: -v would turn "\." into ".".
+        BEGIN { re = ENVIRON["PATH_RE"]; neg = substr(re, 1, 1) == "!"; if (neg) re = substr(re, 2) }
         NR == FNR { want[$1] = 1; next }
         (FNR in want) && (($1 ~ re) != neg) { print $1 ":" $2 }' - "$added_loc" | head -n 20)
 }
