@@ -2,9 +2,7 @@
 
 AgentFlow's first application was rejected. This file is the checklist for
 the next one: the likely reasons, what is fixed, what is still open, and what
-would get it rejected again. It applies the lessons recorded in Soroban
-Forge's `docs/REJECTION-PROOFING.md` and `docs/RESUBMISSION.md`, which went
-from rejected to accepted.
+would get it rejected again.
 
 Every ✅ links its evidence. Every open item says who can do it: **code**
 (maintainer or agent) or **human** (only the founder).
@@ -17,9 +15,8 @@ Every ✅ links its evidence. Every open item says who can do it: **code**
 
 1. **Overselling the headline.** The pitch said "AI agents execute them",
    but no AI model is involved anywhere: the only agent is a deterministic
-   CSV calculator. This is the same mistake Forge made with six contracts
-   advertised when one was real. A reviewer who checks the code sees the
-   headline feature isn't there.
+   CSV calculator. A reviewer who checks the code sees the headline feature
+   isn't there.
 2. **Proof was buried.** The contract was live, but the README had no proof
    table, no read-only way to check the deployment, and no way to rebuild the
    deployed hash.
