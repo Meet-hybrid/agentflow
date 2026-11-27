@@ -1,3 +1,4 @@
+import type { JsFunctionSpec } from "@agentflow/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { api, type Task } from "../api.ts";
@@ -41,7 +42,9 @@ interface History {
     id: string;
     attempt: number;
     status: string;
-    output?: { columns: string[]; rows: string[][]; inputRows: number };
+    output?:
+      | { columns: string[]; rows: string[][]; inputRows: number }
+      | { language: "javascript"; code: string };
     output_sha256: string;
     digest: string;
     verification: {
@@ -49,6 +52,10 @@ interface History {
       expectedOutputSha256?: string;
       error?: string;
       method: string;
+      // test-suite (js-function)
+      passed?: number;
+      total?: number;
+      failures?: { test: number; error?: string; actual?: unknown; expected?: unknown }[];
     };
     created_at: string;
   }[];
@@ -130,7 +137,7 @@ export function TaskDetail() {
           <p className="prewrap">{task.description}</p>
           <h3>Acceptance criteria</h3>
           <p className="prewrap">{task.acceptanceCriteria}</p>
-          {task.spec && (
+          {task.spec?.type === "csv-aggregate" && (
             <>
               <h3>Specification ({task.taskType})</h3>
               <p className="muted">
@@ -144,6 +151,7 @@ export function TaskDetail() {
               </details>
             </>
           )}
+          {task.spec?.type === "js-function" && <JsFunctionSpecView spec={task.spec} />}
         </div>
         <aside className="panel">
           <h2>Escrow</h2>
@@ -404,6 +412,42 @@ function Actions({
   );
 }
 
+function JsFunctionSpecView({ spec }: { spec: JsFunctionSpec }) {
+  return (
+    <>
+      <h3>Specification (js-function)</h3>
+      <p className="muted">
+        Write <code>{spec.functionName}</code> in JavaScript. Checked by running {spec.tests.length}{" "}
+        tests in an isolated interpreter.
+      </p>
+      <p className="prewrap">{spec.prompt}</p>
+      <details>
+        <summary>Tests</summary>
+        <pre className="mono scroll">
+          {spec.tests
+            .map(
+              (t) =>
+                `${spec.functionName}(...${JSON.stringify(t.args)}) → ${JSON.stringify(t.expected)}`,
+            )
+            .join("\n")}
+        </pre>
+      </details>
+    </>
+  );
+}
+
+function verificationText(v: History["submissions"][number]["verification"]): string {
+  if (v.method === "test-suite") {
+    if (v.matches) return `Verified: passes all ${v.total} tests, run by the platform.`;
+    const first = v.failures?.[0];
+    const why = first?.error ?? (first ? `test ${first.test} returned a different value` : "");
+    return `Passes ${v.passed ?? 0} of ${v.total ?? 0} tests${why ? ` (${why})` : ""}.`;
+  }
+  return v.matches
+    ? "Verified: matches an independent deterministic recomputation."
+    : `Does not match recomputation${v.error ? ` (${v.error})` : ""}.`;
+}
+
 function Submissions({ history }: { history: History }) {
   if (!history.submissions.length) return null;
   return (
@@ -416,15 +460,15 @@ function Submissions({ history }: { history: History }) {
             <StatusBadge status={s.status} />
           </div>
           <p className={s.verification.matches ? "ok-text" : "error-text"}>
-            {s.verification.matches
-              ? "Verified: matches an independent deterministic recomputation."
-              : `Does not match recomputation${s.verification.error ? ` (${s.verification.error})` : ""}.`}
+            {verificationText(s.verification)}
           </p>
           <p className="muted small">
             Output sha256 <span className="mono">{short(s.output_sha256, 10)}</span> · on-chain
             evidence <span className="mono">{short(s.digest, 10)}</span>
           </p>
-          {s.output ? (
+          {s.output && "code" in s.output ? (
+            <pre className="mono scroll">{s.output.code}</pre>
+          ) : s.output ? (
             <ResultTable columns={s.output.columns} rows={s.output.rows.slice(0, 50)} />
           ) : (
             <p className="muted">Output is visible to the task's parties.</p>

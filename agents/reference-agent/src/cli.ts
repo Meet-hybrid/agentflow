@@ -16,9 +16,16 @@
  *   AGENT_POLL_SECONDS         poll interval for `run` (default 15)
  *   AGENT_STATE_DIR            local state directory (default ./.agent-state)
  *   AGENT_MAX_FEE_STROOPS      highest fee the agent will sign (default 50000000 = 5 XLM)
+ *   AGENT_CODE_MODEL           Claude model that writes js-function code (default claude-opus-5-5)
+ *   ANTHROPIC_API_KEY          credentials for that model (or a profile from `ant auth login`)
+ *
+ * The agent only takes the task types it is registered for: add the
+ * js-function capability to the agent to let it take code tasks.
  */
 import { cliSigner, keypairSigner, resolveSecret, type Signer } from "@agentflow/stellar";
 import { ReferenceAgent } from "./agent.ts";
+import { ClaudeCodeWriter } from "./executors/claude-writer.ts";
+import { createExecutors } from "./executors/index.ts";
 
 function payoutSigner(): Signer {
   const alias = process.env.AGENT_PAYOUT_STELLAR_KEY;
@@ -47,6 +54,9 @@ const agent = new ReferenceAgent({
   stateDir: process.env.AGENT_STATE_DIR ?? ".agent-state",
   maxExecutionAttempts: 3,
   maxFeeStroops: BigInt(process.env.AGENT_MAX_FEE_STROOPS ?? "50000000"),
+  executors: createExecutors({
+    writer: new ClaudeCodeWriter({ model: process.env.AGENT_CODE_MODEL || undefined }),
+  }),
 });
 await agent.init();
 if (command === "once") {

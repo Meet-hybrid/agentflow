@@ -2,16 +2,20 @@ import { randomBytes } from "node:crypto";
 import {
   applyOffchain,
   type CreateTaskRequest,
+  type CsvAggregateSpec,
   checkAction,
-  csvAggregateOutputSchema,
   hashJson,
+  type JsFunctionSpec,
+  OUTPUT_SCHEMAS,
   type Role,
   runCsvAggregate,
   submissionDigest,
   type submissionRequest,
   type TaskStatus,
+  type TaskType,
   type taskListQuery,
 } from "@agentflow/shared";
+import { runJsFunctionTestsIsolated } from "@agentflow/shared/js-function-runner";
 import { fromBaseUnits, toBaseUnits } from "@agentflow/stellar";
 import type { z } from "zod";
 import type { AgentPrincipal, Principal, UserPrincipal } from "../auth.ts";
@@ -162,10 +166,14 @@ export async function createTask(
     throw badRequest("deadline must be within 89 days");
 
   // Validate that the task can actually be executed before accepting it.
-  try {
-    runCsvAggregate(req.spec);
-  } catch (e) {
-    throw badRequest(`task input is not executable: ${(e as Error).message}`);
+  // (js-function specs are fully checked by their schema; whether a solution
+  // exists is up to the client.)
+  if (req.spec.type === "csv-aggregate") {
+    try {
+      runCsvAggregate(req.spec);
+    } catch (e) {
+      throw badRequest(`task input is not executable: ${(e as Error).message}`);
+    }
   }
 
   const onchainId = randomBytes(32).toString("hex");
@@ -391,11 +399,35 @@ export async function createSubmission(
     return existing.rows[0];
   }
 
-  const output = csvAggregateOutputSchema.parse(req.output);
+  // Cheap checks first: verification of some task types runs untrusted code
+  // for up to VERIFY_TIMEOUT_MS, so only the assigned agent, on a task that
+  // can take a submission, gets that far. Everything is re-checked under the
+  // row lock below.
+  const current = await getTask(db, taskId);
+  if (current.assigned_agent_id !== agent.id) throw forbidden("task is not assigned to this agent");
+  const early = checkAction("submit", current.status, "agent");
+  if (early) throw conflict("INVALID_STATE", early.message);
+  if (req.evidence.specSha256 !== current.spec_sha256) {
+    throw badRequest("evidence.specSha256 does not match the task specification");
+  }
+
+  const schema = OUTPUT_SCHEMAS[current.task_type as TaskType];
+  if (!schema) throw badRequest(`unsupported task type ${current.task_type}`);
+  const parsedOutput = schema.safeParse(req.output);
+  if (!parsedOutput.success) {
+    throw badRequest(
+      `output does not match the ${current.task_type} output format`,
+      parsedOutput.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+    );
+  }
+  const output = parsedOutput.data;
   const outputSha256 = await hashJson(output);
   if (outputSha256 !== req.evidence.outputSha256) {
     throw badRequest("evidence.outputSha256 does not match the submitted output");
   }
+  // The specification can't change after creation, so verifying outside the
+  // transaction is safe and keeps the row lock short.
+  const verification = await verify(current, output, outputSha256);
 
   return withTx(db, async (tx) => {
     const task = await lockTask(tx, taskId);
@@ -406,7 +438,6 @@ export async function createSubmission(
       throw badRequest("evidence.specSha256 does not match the task specification");
     }
 
-    const verification = await verify(task, outputSha256);
     const { rows: prev } = await tx.query<{ attempt: number }>(
       "select coalesce(max(attempt), 0) as attempt from submissions where task_id = $1",
       [taskId],
@@ -449,11 +480,26 @@ export async function createSubmission(
   });
 }
 
-/** Deterministic re-execution of the task, compared by output hash. */
-async function verify(task: TaskRow, outputSha256: string) {
+/** Hard limit for running a js-function submission's tests. */
+const VERIFY_TIMEOUT_MS = 30_000;
+
+/**
+ * Independent check of a submission, by task type:
+ * - csv-aggregate: deterministic re-execution, compared by output hash;
+ * - js-function: the client's tests, run in an isolated interpreter.
+ */
+async function verify(task: TaskRow, output: unknown, outputSha256: string) {
+  if (task.task_type === "js-function") {
+    const report = await runJsFunctionTestsIsolated(
+      task.spec as JsFunctionSpec,
+      (output as { code: string }).code,
+      { timeoutMs: VERIFY_TIMEOUT_MS },
+    );
+    return { ...report, outputSha256 };
+  }
   const started = Date.now();
   try {
-    const expected = runCsvAggregate(task.spec as Parameters<typeof runCsvAggregate>[0]);
+    const expected = runCsvAggregate(task.spec as CsvAggregateSpec);
     const expectedOutputSha256 = await hashJson(expected);
     return {
       method: "deterministic-recompute",

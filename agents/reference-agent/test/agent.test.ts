@@ -18,6 +18,8 @@ import {
   taskBody,
 } from "../../../apps/api/test/helpers.ts";
 import { ReferenceAgent } from "../src/agent.ts";
+import { createExecutors } from "../src/executors/index.ts";
+import type { CodeWriter } from "../src/executors/js-function.ts";
 
 let h: Harness;
 let url: string;
@@ -39,13 +41,16 @@ afterAll(async () => {
   await h?.close();
 });
 
-async function newAgent(minReward = "1") {
+async function newAgent(
+  minReward = "1",
+  opts: { capabilities?: Record<string, unknown>[]; writer?: CodeWriter } = {},
+) {
   const operator = await signIn(h);
   const payout = Keypair.random();
   const reg = await call(h, "POST", "/agents", operator, {
     name: `ref-${crypto.randomUUID().slice(0, 6)}`,
     payoutAddress: payout.publicKey(),
-    capabilities: [{ taskType: "csv-aggregate", maxRows: 1000 }],
+    capabilities: opts.capabilities ?? [{ taskType: "csv-aggregate", maxRows: 1000 }],
   });
   const agent = new ReferenceAgent({
     apiUrl: url,
@@ -55,10 +60,11 @@ async function newAgent(minReward = "1") {
     stateDir: await mkdtemp(join(tmpdir(), "agentflow-agent-")),
     maxExecutionAttempts: 2,
     maxFeeStroops: 50_000_000n,
+    executors: createExecutors({ writer: opts.writer }),
     log: (e) => logs.push(e),
   });
   await agent.init();
-  return { agent, id: reg.body.agent.id as string };
+  return { agent, id: reg.body.agent.id as string, apiKey: reg.body.apiKey as string };
 }
 
 async function openTask(overrides: Record<string, unknown> = {}) {
@@ -162,5 +168,144 @@ describe("reference agent", () => {
       true,
     );
     expect(await status(id)).toBe("in_progress");
+  });
+});
+
+// ----- js-function: code written by a model, verified by running tests --------
+
+const JS_SPEC = {
+  type: "js-function",
+  version: 1,
+  functionName: "slugify",
+  prompt:
+    "Lower-case the string and join its words with single hyphens, dropping other characters.",
+  tests: [
+    { args: ["Hello World"], expected: "hello-world" },
+    { args: ["  Soroban   escrow! "], expected: "soroban-escrow" },
+    { args: ["a_b c"], expected: "ab-c" },
+  ],
+};
+const SLUGIFY = `function slugify(s) {
+  return s.toLowerCase().replace(/[^a-z0-9\\s]/g, "").trim().split(/\\s+/).join("-");
+}`;
+
+function fakeModel(answers: string[]): CodeWriter {
+  return {
+    model: "fake-model",
+    start() {
+      let i = 0;
+      return { next: async () => answers[Math.min(i++, answers.length - 1)] as string };
+    },
+  };
+}
+
+describe("reference agent: js-function", () => {
+  it("writes the code, has the platform run the tests, submits on-chain and gets paid", async () => {
+    const { agent } = await newAgent("1", {
+      capabilities: [{ taskType: "js-function" }],
+      writer: fakeModel(["function slugify(s) { return s; }", SLUGIFY]),
+    });
+    const { client, id } = await openTask({
+      title: "Slugify a title",
+      acceptanceCriteria: "Passes the tests.",
+      spec: JS_SPEC,
+      constraints: { maxDurationSeconds: 300 },
+    });
+
+    await agent.runOnce();
+    const apps = await call(h, "GET", `/tasks/${id}/applications`, client);
+    expect(apps.body).toHaveLength(1);
+    expect(apps.body[0].message).toContain("fake-model");
+
+    await chainOp(h, id, client, { action: "accept_application", applicationId: apps.body[0].id });
+    await waitFor(async () => (await status(id)) === "assigned");
+    await agent.runOnce();
+    expect(await status(id)).toBe("under_review");
+
+    const history = await call(h, "GET", `/tasks/${id}/history`, client);
+    expect(history.body.submissions).toHaveLength(1);
+    const sub = history.body.submissions[0];
+    expect(sub.output).toEqual({ language: "javascript", code: SLUGIFY });
+    expect(sub.verification).toMatchObject({
+      method: "test-suite",
+      matches: true,
+      passed: 3,
+      total: 3,
+    });
+
+    await chainOp(h, id, client, { action: "approve" });
+    await waitFor(async () => (await status(id)) === "paid");
+  });
+
+  it("the platform runs the tests itself: failing code is recorded as not verified", async () => {
+    // An agent that skips its own checks and posts failing code directly.
+    const { agent, apiKey } = await newAgent("1", {
+      capabilities: [{ taskType: "js-function" }],
+      writer: fakeModel([SLUGIFY]),
+    });
+    const { client, id } = await openTask({
+      spec: JS_SPEC,
+      constraints: { maxDurationSeconds: 300 },
+    });
+    await agent.runOnce();
+    const apps = await call(h, "GET", `/tasks/${id}/applications`, client);
+    await chainOp(h, id, client, { action: "accept_application", applicationId: apps.body[0].id });
+    await waitFor(async () => (await status(id)) === "assigned");
+
+    const task = (await call(h, "GET", `/tasks/${id}`)).body;
+    const output = {
+      language: "javascript",
+      code: "function slugify(s) { return 'hello-world'; }",
+    };
+    const { hashJson } = await import("@agentflow/shared");
+    const now = new Date().toISOString();
+    const res = await fetch(`${url}/tasks/${id}/submissions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        idempotencyKey: `cheat-${id}`,
+        output,
+        evidence: {
+          executor: "cheater",
+          specSha256: task.specSha256,
+          outputSha256: await hashJson(output),
+          startedAt: now,
+          finishedAt: now,
+          durationMs: 0,
+        },
+      }),
+    });
+    const body = (await res.json()) as { verification: unknown };
+    expect(res.status).toBeLessThan(300);
+    expect(body.verification).toMatchObject({ method: "test-suite", matches: false, passed: 1 });
+
+    // And csv output on a js-function task is refused outright.
+    const wrongShape = await fetch(`${url}/tasks/${id}/submissions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        idempotencyKey: `shape-${id}`,
+        output: { columns: [], rows: [], inputRows: 0 },
+        evidence: {
+          executor: "cheater",
+          specSha256: task.specSha256,
+          outputSha256: "0".repeat(64),
+          startedAt: now,
+          finishedAt: now,
+          durationMs: 0,
+        },
+      }),
+    });
+    expect(wrongShape.status).toBe(400);
+  });
+
+  it("only looks for task types it is registered for", async () => {
+    const { agent } = await newAgent("1", { writer: fakeModel([SLUGIFY]) }); // csv only
+    const { client, id } = await openTask({
+      spec: JS_SPEC,
+      constraints: { maxDurationSeconds: 300 },
+    });
+    await agent.runOnce();
+    expect((await call(h, "GET", `/tasks/${id}/applications`, client)).body).toHaveLength(0);
   });
 });

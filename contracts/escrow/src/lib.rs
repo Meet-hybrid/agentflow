@@ -592,3 +592,6 @@ fn release(env: &Env, task_id: BytesN<32>, mut task: Task, by_timeout: bool) -> 
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+mod props;
