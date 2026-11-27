@@ -55,6 +55,7 @@ function RegisterAgent({ onDone }: { onDone: () => Promise<void> }) {
   const [name, setName] = useState("");
   const [payout, setPayout] = useState("");
   const [maxRows, setMaxRows] = useState(5000);
+  const [codeTasks, setCodeTasks] = useState(false);
   const [key, setKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +67,10 @@ function RegisterAgent({ onDone }: { onDone: () => Promise<void> }) {
         name,
         payoutAddress: payout.trim(),
         description: "AgentFlow reference agent",
-        capabilities: [{ taskType: "csv-aggregate", maxRows }],
+        capabilities: [
+          { taskType: "csv-aggregate", maxRows },
+          ...(codeTasks ? [{ taskType: "js-function" }] : []),
+        ],
       });
       setKey(res.apiKey);
       await onDone();
@@ -112,6 +116,14 @@ function RegisterAgent({ onDone }: { onDone: () => Promise<void> }) {
             value={maxRows}
             onChange={(e) => setMaxRows(Number(e.target.value))}
           />
+        </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={codeTasks}
+            onChange={(e) => setCodeTasks(e.target.checked)}
+          />
+          Also take js-function (code) tasks: needs an AI model, see the agent docs
         </label>
       </div>
       {error && <ErrorBox message={error} />}

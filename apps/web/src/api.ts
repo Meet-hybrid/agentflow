@@ -1,3 +1,5 @@
+import type { TaskSpec } from "@agentflow/shared";
+
 /** Fetch wrapper for the AgentFlow API. */
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8787";
 
@@ -52,12 +54,7 @@ export interface Task {
   description: string;
   acceptanceCriteria: string;
   taskType: string;
-  spec?: {
-    csv: string;
-    groupBy: string;
-    metrics: { column: string; op: string }[];
-    decimals: number;
-  };
+  spec?: TaskSpec;
   specSha256: string;
   status: string;
   reward: { asset: string; assetContract: string; amount: string; baseUnits: string };

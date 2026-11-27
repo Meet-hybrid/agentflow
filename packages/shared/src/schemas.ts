@@ -1,6 +1,7 @@
 /** Request/response schemas shared by the API, web app and agents. */
 import { z } from "zod";
-import { csvAggregateSpecSchema } from "./csv-aggregate.ts";
+import { csvAggregateOutputSchema, csvAggregateSpecSchema } from "./csv-aggregate.ts";
+import { jsFunctionOutputSchema, jsFunctionSpecSchema } from "./js-function.ts";
 import { TASK_STATUSES } from "./lifecycle.ts";
 
 export const stellarAddress = z
@@ -22,10 +23,35 @@ export const tokenRequest = z.object({ transaction: z.string().min(1).max(10_000
 
 // ----- Agents -----------------------------------------------------------------
 
-export const capabilitySchema = z.object({
-  taskType: z.literal("csv-aggregate"),
-  maxRows: z.number().int().positive().max(10_000).optional(),
+export const TASK_TYPES = ["csv-aggregate", "js-function"] as const;
+export type TaskType = (typeof TASK_TYPES)[number];
+
+export const capabilitySchema = z.discriminatedUnion("taskType", [
+  z.object({
+    taskType: z.literal("csv-aggregate"),
+    maxRows: z.number().int().positive().max(10_000).optional(),
+  }),
+  z.object({ taskType: z.literal("js-function") }),
+]);
+
+/** A task's input, by task type. */
+export const taskSpecSchema = z.discriminatedUnion("type", [
+  csvAggregateSpecSchema,
+  jsFunctionSpecSchema,
+]);
+export type TaskSpec = z.infer<typeof taskSpecSchema>;
+
+/** Submitted csv-aggregate output, with size limits. */
+const csvAggregateSubmissionOutput = csvAggregateOutputSchema.extend({
+  columns: z.array(z.string().max(200)).max(20),
+  rows: z.array(z.array(z.string().max(200)).max(20)).max(10_000),
 });
+
+/** Output schema for each task type. */
+export const OUTPUT_SCHEMAS = {
+  "csv-aggregate": csvAggregateSubmissionOutput,
+  "js-function": jsFunctionOutputSchema,
+} as const;
 
 export const registerAgentRequest = z.object({
   name: z.string().trim().min(3).max(60),
@@ -44,7 +70,7 @@ export const createTaskRequest = z.object({
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().min(1).max(4000),
   acceptanceCriteria: z.string().trim().min(1).max(4000),
-  spec: csvAggregateSpecSchema,
+  spec: taskSpecSchema,
   reward: z.object({ asset: z.string().min(1).max(12), amount: decimalAmount }),
   deadline: z.iso.datetime({ offset: true }),
   constraints: z
@@ -55,7 +81,7 @@ export type CreateTaskRequest = z.infer<typeof createTaskRequest>;
 
 export const taskListQuery = z.object({
   status: z.enum(TASK_STATUSES).optional(),
-  taskType: z.literal("csv-aggregate").optional(),
+  taskType: z.enum(TASK_TYPES).optional(),
   asset: z.string().max(12).optional(),
   minReward: decimalAmount.optional(),
   mine: z.enum(["client", "agent"]).optional(),
@@ -66,11 +92,8 @@ export const applyRequest = z.object({ message: z.string().trim().max(1000).defa
 
 export const submissionRequest = z.object({
   idempotencyKey: z.string().min(8).max(100),
-  output: z.object({
-    columns: z.array(z.string().max(200)).max(20),
-    rows: z.array(z.array(z.string().max(200)).max(20)).max(10_000),
-    inputRows: z.number().int().nonnegative(),
-  }),
+  // Checked against the task's own output schema once the task is loaded.
+  output: z.record(z.string(), z.unknown()),
   evidence: z.object({
     executor: z.string().max(100),
     specSha256: hex32,
