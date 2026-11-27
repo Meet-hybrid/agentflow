@@ -17,3 +17,5 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+# std only: no fork or timeout support, which pull in extra dependencies.
+proptest = { version = "1", default-features = false, features = ["std"] }
