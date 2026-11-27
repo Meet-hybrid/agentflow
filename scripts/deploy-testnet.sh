@@ -15,6 +15,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 NETWORK=testnet
 REVIEW_WINDOW="${REVIEW_WINDOW:-600}"
+# Build with a fixed Rust version so the deployed hash can be reproduced (CI
+# rebuilds with this version and compares against deployments/testnet.json).
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-1.96.0}"
 
 ensure_key() {
   if ! stellar keys address "$1" >/dev/null 2>&1; then

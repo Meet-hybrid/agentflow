@@ -48,6 +48,16 @@ jobs:
           tar -xzf /tmp/stellar-cli.tgz -C "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: stellar contract build --locked
+      - name: Reproduce the deployed testnet WASM
+        # The deployed contract was built with rustc 1.96.0 (recorded in its
+        # WASM metadata). Rebuilding with it must give the hash recorded in
+        # deployments/testnet.json. If you change the contract, redeploy and
+        # update deployments/testnet.json in the same pull request.
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --target wasm32v1-none
+          RUSTUP_TOOLCHAIN=1.96.0 stellar contract build --locked
+          expected=$(node -p "require('../deployments/testnet.json').wasmSha256")
+          echo "$expected  target/wasm32v1-none/release/agentflow_escrow.wasm" | sha256sum -c -
 
   typescript:
     name: TypeScript
