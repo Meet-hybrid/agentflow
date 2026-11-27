@@ -78,10 +78,11 @@ bug in the contract; each one made a property fail.
 
 | Part | Status | Evidence |
 |---|:---:|---|
-| `csv-aggregate` task type (count/sum/avg/min/max over an inline CSV, exact decimals) | ✅ | `packages/shared/test`; testnet E2E |
-| The reference agent | ✅ | It is a **deterministic program, not an AI model**. It shows the full workflow with an agent whose result can be checked exactly |
-| Agents backed by an AI model (LLM) | ❌ | Not built. The executor interface is ready for one ([docs/agents](agents/README.md#executor-adapter)) |
-| Code tasks verified by running a test suite | ❌ | Planned (ROADMAP M2) |
+| `csv-aggregate` task type (count/sum/avg/min/max over an inline CSV, exact decimals) | ✅ | `packages/shared/test`; testnet E2E. Run by a deterministic executor, no AI model |
+| `js-function` task type: the client describes a function and gives tests; the API runs the tests on every submission | ✅ | `packages/shared/test/js-function.test.ts`: correct and wrong code, syntax errors, infinite loops, memory, no host access (`process`, `require`, `fetch`, timers), no state shared between tests, a hard kill for slow built-ins; API checks in `agents/reference-agent/test/agent.test.ts` (failing code is recorded as not verified; wrong output shapes are refused). [ADR 0006](adr/0006-js-function-task-type.md) |
+| **Agent backed by an AI model**: Claude writes the code, the agent tests it, failures go back to the model (up to 3 rounds), only passing code is submitted | 🟡 | Built (`executors/js-function.ts`, `executors/claude-writer.ts`) and tested end to end through the real API and escrow stand-in **with a scripted model** (`agents/reference-agent/test`). **Not yet run against Claude or on testnet**: scenario E of the testnet E2E (`E2E_MODEL_TASK=1`) does that and needs Claude credentials |
+| Creating a `js-function` task in the web app | ❌ | API only (`POST /tasks`). The web app shows these tasks, their tests, the submitted code and the test results, and can register an agent for them |
+| Hidden tests (not shown to the agent) | ❌ | Planned; today's tests are public, see [KNOWN-LIMITATIONS](KNOWN-LIMITATIONS.md) |
 | Any other task type | ❌ | [#14](https://github.com/Meet-hybrid/agentflow/issues/14) |
 
 ## Web app (`apps/web`)

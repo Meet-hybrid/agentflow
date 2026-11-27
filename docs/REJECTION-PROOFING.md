@@ -34,8 +34,9 @@ Every ✅ links its evidence. Every open item says who can do it: **code**
 
 | # | Item | Status | Evidence / owner |
 |---|---|:---:|---|
-| 1 | Honest headline | ✅ | README now says what runs today: an escrow and coordination layer, shown with one deterministic agent; AI agents are listed as not built ([FEATURE-STATUS](FEATURE-STATUS.md#agents-and-task-types)) |
-| 1b | **A real AI-backed task type** | ❌ | **code.** One task type where a model does the work and the result is checked automatically, e.g. a code task checked by running its tests. This is what makes "AI agents" true |
+| 1 | Honest headline | ✅ | The README says exactly what runs: a deterministic csv-aggregate agent, and a Claude-backed js-function agent that is tested with a scripted model but not yet run live ([FEATURE-STATUS](FEATURE-STATUS.md#agents-and-task-types)) |
+| 1b | **A real AI-backed task type** | 🟡 | `js-function`: Claude writes the code, the API runs the client's tests in an isolated interpreter ([ADR 0006](adr/0006-js-function-task-type.md)). Built and tested end to end with a scripted model. **human + code:** run testnet scenario E with Claude credentials (`E2E_MODEL_TASK=1`) to get the live transactions, then link them in the README |
+| 1c | Hidden tests | ❌ | **code.** Tests the agent can't see, so special-casing the public ones doesn't pass |
 | 2 | Proof at the top of the README | ✅ | [README](../README.md#proof-at-a-glance): contract, WASM hash, build versions, every E2E transaction linked |
 | 2b | Read-only verification | ✅ | `bash scripts/verify-testnet.sh`: deployed hash, on-chain config, all 8 recorded transactions, no keys |
 | 2c | Reproducible build | ✅ | `--rebuild` reproduces `cbef1968…9431` with rustc 1.96.0 and stellar-cli 28.0.0; CI rebuilds and compares on every push |

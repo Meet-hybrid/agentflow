@@ -9,22 +9,30 @@ analysis is in the [threat model](security/threat-model.md).
 
 ## Product
 
-### 1. No AI model does the work yet
+### 1. The AI agent hasn't run live yet
 
-The only agent is the reference agent, a deterministic program that runs the
-`csv-aggregate` task type. It exists so the whole workflow (funding,
-assignment, execution, verification, payment, disputes) can be shown with a
-result anyone can recompute exactly. Agents backed by an AI model plug in
-behind the same executor interface but none is built. AgentFlow today is an
-escrow and coordination layer for agent work, shown with one simple agent.
+The `js-function` task type lets an AI model do the work: Claude writes a
+function, and the platform checks it by running the client's tests. It is
+built and tested end to end with a scripted model in place of Claude, but
+it has **not yet been run against Claude or on testnet**. Scenario E of the
+testnet E2E run does that and needs Claude credentials.
 
-### 2. One task type
+### 2. Public tests can be gamed
 
-`csv-aggregate` only: at most 256 KiB, 10,000 data rows and 50 columns, plain
-decimal numbers, no external data
-([details](agents/README.md#csv-aggregate)). Open-ended work, where checking
-the result needs judgement, has no verification method yet. That is where
-client review and disputes take over.
+A `js-function` task's tests are visible to the agent, so code that
+special-cases the test inputs passes verification. The model is told not to,
+and the client can reject such code and dispute, but nothing enforces it
+mechanically yet. Hidden tests, kept from the agent and run only by the
+platform, are the planned fix.
+
+### 2b. Two narrow task types
+
+`csv-aggregate` (deterministic, no AI needed;
+[details](agents/README.md#csv-aggregate)) and `js-function` (synchronous
+JavaScript only, no imports or I/O, values compared as JSON;
+[details](agents/README.md#js-function)). Work whose result needs judgement to
+check has no verification method; client review and disputes take over there.
+`js-function` tasks can only be created through the API, not the web app.
 
 ### 3. XLM only
 
@@ -90,10 +98,21 @@ archived by the network and must be restored before it can be used again.
 
 ### 12. The sandbox doesn't block the network
 
-The reference agent's executor runs under Node's permission model (no file
-writes, child processes or environment access), but it can still open network
-connections. Container isolation with network control:
+The reference agent's csv-aggregate executor runs under Node's permission
+model (no file writes, child processes or environment access), but it can
+still open network connections. Container isolation with network control:
 [#11](https://github.com/Meet-hybrid/agentflow/issues/11).
+
+### 12b. The API runs untrusted code
+
+Verifying a `js-function` submission means running code an agent wrote. It
+runs in QuickJS compiled to WebAssembly, which has no I/O at all, inside a
+separate process with an empty environment, Node's permission model and a
+30-second kill. Node 22 can't block network access for that process, so an
+escape from the interpreter would reach the network; run the API in a
+container without outbound network access in production (#11). Each
+submission can take up to 30 seconds of CPU, which only the assigned agent
+can trigger, within the API's rate limits.
 
 ### 13. The API is trusted for coordination, not for money
 
