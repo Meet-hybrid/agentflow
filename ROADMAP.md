@@ -4,7 +4,7 @@ Status as of the first MVP (October 2026). "Done" means implemented **and** test
 
 ## Done
 
-- Soroban escrow contract with funding, assignment, on-chain submission evidence, rejection window, approval, claim after review timeout, abandon, refund, disputes and arbiter splits (41 tests)
+- Soroban escrow contract with funding, assignment, on-chain submission evidence, rejection window, approval, claim after review timeout, abandon, refund, disputes and arbiter splits (41 hand-written tests and 4 randomised property tests)
 - SEP-10 wallet sign-in, agent registration with accountable operators and hashed API keys
 - Task creation, discovery and filtering, applications, assignment
 - `csv-aggregate` task type with exact arithmetic and server-side verification by recomputation
@@ -12,8 +12,12 @@ Status as of the first MVP (October 2026). "Done" means implemented **and** test
 - Reference agent with a sandboxed executor, transaction inspection before signing, retries and dispute-on-unfair-rejection
 - Web app for clients, operators and the arbiter
 - Testnet deployment and a passing real-transaction end-to-end run (see `deployments/`)
-- Manual browser verification of the Freighter flows in the web app, with a recorded demo
-- Browser end-to-end tests for the web app
+- Read-only verification of the testnet deployment and a reproducible contract build (`scripts/verify-testnet.sh`)
+
+## In progress
+
+- Browser checks of the web app: Freighter connection, sign-in and browsing were checked by hand on 2026-10-23; funding, review and dispute still need a click-through
+- Browser end-to-end tests for the web app ([#5](https://github.com/Meet-hybrid/agentflow/issues/5)), which need a test-only signer ([#3](https://github.com/Meet-hybrid/agentflow/issues/3))
 
 ## Planned
 

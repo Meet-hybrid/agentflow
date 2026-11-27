@@ -1,6 +1,6 @@
 # Escrow contract
 
-Source: [`contracts/escrow/src/lib.rs`](../../contracts/escrow/src/lib.rs) · Tests: [`test.rs`](../../contracts/escrow/src/test.rs) (41 tests) · SDK: `soroban-sdk 29.0.1`
+Source: [`contracts/escrow/src/lib.rs`](../../contracts/escrow/src/lib.rs) · Tests: [`test.rs`](../../contracts/escrow/src/test.rs) (41 tests) and [`props.rs`](../../contracts/escrow/src/props.rs) (4 randomised properties) · SDK: `soroban-sdk 29.0.1`
 
 The contract holds one client bounty per task id and releases it only through the paths below. It never judges whether work is correct: approval is an authorized signature, not a proof of quality. Work verification happens off-chain (see [architecture](../architecture/overview.md)).
 
