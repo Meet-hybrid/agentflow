@@ -14,7 +14,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertEscrowTx, inspectEscrowTx, type Signer, toBaseUnits } from "@agentflow/stellar";
 import { ApiClient, ApiRequestError } from "./api-client.ts";
-import { EXECUTORS, type TaskExecutor } from "./executors/index.ts";
+import { createExecutors, type TaskExecutor } from "./executors/index.ts";
 import { SandboxError } from "./sandbox.ts";
 
 export interface AgentConfig {
@@ -28,6 +28,8 @@ export interface AgentConfig {
   maxExecutionAttempts: number;
   /** Highest network fee the agent will sign, in stroops. */
   maxFeeStroops: bigint;
+  /** Task executors by task type (default: csv-aggregate only). */
+  executors?: Record<string, TaskExecutor>;
   log?: (entry: Record<string, unknown>) => void;
 }
 
@@ -71,10 +73,12 @@ export class ReferenceAgent {
   private network = "";
   private escrowContract = "";
   private capabilities: { taskType: string; maxRows?: number }[] = [];
+  private readonly executors: Record<string, TaskExecutor>;
   readonly log: (entry: Record<string, unknown>) => void;
 
   constructor(cfg: AgentConfig) {
     this.cfg = cfg;
+    this.executors = cfg.executors ?? createExecutors();
     this.api = new ApiClient({ baseUrl: cfg.apiUrl, token: cfg.apiKey });
     this.log =
       cfg.log ??
@@ -117,10 +121,16 @@ export class ReferenceAgent {
       if (TERMINAL.has(task.status)) continue;
       await this.guard(task.id, () => this.continueTask(task));
     }
-    const open = await this.api.get<Task[]>("/tasks?status=open&taskType=csv-aggregate&limit=50");
-    for (const task of open) {
-      if (this.state.applied[task.id] || this.state.declined[task.id]) continue;
-      await this.guard(task.id, () => this.consider(task));
+    // Look only for task types this agent can run and is registered for.
+    for (const taskType of Object.keys(this.executors)) {
+      if (!this.capabilities.some((c) => c.taskType === taskType)) continue;
+      const open = await this.api.get<Task[]>(
+        `/tasks?status=open&taskType=${encodeURIComponent(taskType)}&limit=50`,
+      );
+      for (const task of open) {
+        if (this.state.applied[task.id] || this.state.declined[task.id]) continue;
+        await this.guard(task.id, () => this.consider(task));
+      }
     }
   }
 
@@ -139,7 +149,7 @@ export class ReferenceAgent {
 
   private async consider(summary: Task) {
     const task = await this.api.get<Task>(`/tasks/${summary.id}`);
-    const executor = EXECUTORS[task.taskType];
+    const executor = this.executors[task.taskType];
     const reasons: string[] = [];
     if (!executor || !this.capabilities.some((c) => c.taskType === task.taskType)) {
       reasons.push(`unsupported task type ${task.taskType}`);
@@ -155,7 +165,12 @@ export class ReferenceAgent {
     if (new Date(task.deadline).getTime() - Date.now() < margin) reasons.push("deadline too close");
     if (executor) {
       const limit = this.capabilities.find((c) => c.taskType === task.taskType);
-      reasons.push(...executor.evaluate(task.spec, { maxRows: limit?.maxRows }).reasons);
+      reasons.push(
+        ...executor.evaluate(task.spec, {
+          maxRows: limit?.maxRows,
+          maxDurationSeconds: task.constraints.maxDurationSeconds,
+        }).reasons,
+      );
     }
 
     await this.run(task.id, "evaluating", `evaluated "${task.title}"`, { reasons });
@@ -166,7 +181,7 @@ export class ReferenceAgent {
       return;
     }
     await this.api.post(`/tasks/${task.id}/applications`, {
-      message: `Reference agent: deterministic ${task.taskType} executor (${executor?.id}).`,
+      message: `Reference agent: ${executor?.description} (${executor?.id}).`,
     });
     this.state.applied[task.id] = new Date().toISOString();
     await this.saveState();
@@ -194,7 +209,7 @@ export class ReferenceAgent {
   private async execute(summary: Task) {
     if (summary.status === "assigned") await this.api.post(`/tasks/${summary.id}/start`);
     const task = await this.api.get<Task>(`/tasks/${summary.id}`);
-    const executor = EXECUTORS[task.taskType] as TaskExecutor;
+    const executor = this.executors[task.taskType] as TaskExecutor;
     const key = `${task.id}:r${task.rejections}`;
     const attempts = (this.state.attempts[key] ?? 0) + 1;
     this.state.attempts[key] = attempts;
@@ -223,7 +238,7 @@ export class ReferenceAgent {
       }
       return;
     }
-    await this.run(task.id, "succeeded", `computed ${countRows(result.output)} output rows`, {
+    await this.run(task.id, "succeeded", executor.summarize(result.output), {
       outputSha256: result.evidence.outputSha256,
       durationMs: result.evidence.durationMs,
     });
@@ -243,7 +258,7 @@ export class ReferenceAgent {
       await this.run(
         task.id,
         "failed",
-        "platform recomputation disagrees with this output; not submitting",
+        "the platform's verification disagrees with this output; not submitting",
       );
       this.log({ level: "error", event: "verification_mismatch", taskId: task.id });
       return;
@@ -269,13 +284,13 @@ export class ReferenceAgent {
     const reason = history.reviews.filter((r) => r.decision === "rejected").at(-1)?.reason ?? "";
     this.log({ level: "info", event: "rejected", taskId: task.id, reason });
     if (last?.verification.matches && !this.state.disputed[task.id]) {
-      // Deterministic output that matches recomputation: resubmitting the same
-      // result is pointless, so ask the arbiter instead.
+      // Output the platform verified: resubmitting the same result is
+      // pointless, so ask the arbiter instead.
       const op = await this.chainOp(
         task,
         {
           action: "dispute",
-          reason: `Rejected with "${reason.slice(0, 300)}", but the output matches the platform's deterministic recomputation.`,
+          reason: `Rejected with "${reason.slice(0, 300)}", but the output ${this.executors[task.taskType]?.verifiedClaim ?? "passed the platform's verification"}.`,
         },
         "dispute",
       );
@@ -394,10 +409,4 @@ export class ReferenceAgent {
     await writeFile(tmp, JSON.stringify(this.state, null, 2), { mode: 0o600 });
     await rename(tmp, this.statePath);
   }
-}
-
-function countRows(output: unknown): number {
-  return Array.isArray((output as { rows?: unknown[] })?.rows)
-    ? (output as { rows: unknown[] }).rows.length
-    : 0;
 }

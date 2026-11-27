@@ -10,6 +10,9 @@
  *   C. a refund signed and sent straight to the network, bypassing the API
  *      (as if the API crashed), is reconciled from chain state
  *   D. reject → agent disputes → arbiter resolves 50/50
+ *   E. (with E2E_MODEL_TASK=1) a js-function task: Claude writes the code,
+ *      the agent and then the API run the client's tests, the escrow pays.
+ *      Needs Claude credentials (ANTHROPIC_API_KEY or `ant auth login`).
  *
  * Usage: node --env-file=.env tests/e2e/testnet-e2e.ts
  * Writes deployments/e2e-testnet-<timestamp>.json with every tx hash.
@@ -31,6 +34,8 @@ import {
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 import { ReferenceAgent } from "../../agents/reference-agent/src/agent.ts";
+import { ClaudeCodeWriter } from "../../agents/reference-agent/src/executors/claude-writer.ts";
+import { createExecutors } from "../../agents/reference-agent/src/executors/index.ts";
 import { buildApp } from "../../apps/api/src/app.ts";
 import { loadConfig } from "../../apps/api/src/config.ts";
 import { migrate } from "../../apps/api/src/db/migrate.ts";
@@ -385,6 +390,105 @@ try {
     `expected 2 XLM each, got ${toAgent}/${toClient}`,
   );
   log("D: arbiter resolved 50/50; each party received exactly 2 XLM", { tx: resolveD.txHash });
+
+  // ----- E. Code written by an AI model, checked by tests, paid by the escrow ----
+  if (process.env.E2E_MODEL_TASK === "1") {
+    const writer = new ClaudeCodeWriter({ model: process.env.AGENT_CODE_MODEL || undefined });
+    const coder = Keypair.random();
+    await friendbot(coder);
+    const coderReg = await http("POST", "/agents", operatorToken, {
+      name: `coder-${Date.now()}`,
+      description: `AgentFlow reference agent with ${writer.model} (testnet E2E)`,
+      payoutAddress: coder.publicKey(),
+      capabilities: [{ taskType: "js-function" }],
+    });
+    assert(coderReg.status === 201, `coder registration failed ${JSON.stringify(coderReg.body)}`);
+    const coderAgent = new ReferenceAgent({
+      apiUrl: API,
+      apiKey: coderReg.body.apiKey,
+      signer: keypairSigner(coder.secret()),
+      minReward: "1",
+      stateDir: await mkdtemp(join(tmpdir(), "agentflow-e2e-coder-")),
+      maxExecutionAttempts: 2,
+      maxFeeStroops: 50_000_000n,
+      executors: createExecutors({ writer }),
+      log: (e) => console.log("  coder:", JSON.stringify(e)),
+    });
+    await coderAgent.init();
+
+    const e = await http("POST", "/tasks", clientToken, {
+      title: "E2E E: parse durations",
+      description: "Write a function that converts duration strings to seconds.",
+      acceptanceCriteria: "Passes every test.",
+      spec: {
+        type: "js-function",
+        version: 1,
+        functionName: "toSeconds",
+        prompt:
+          'Convert a duration such as "1h30m", "45s" or "2d 3h" to a whole number of seconds. Units: d, h, m, s, in any order, each at most once, optionally separated by spaces. Return null for anything else, including an empty string.',
+        tests: [
+          { args: ["45s"], expected: 45 },
+          { args: ["1h30m"], expected: 5400 },
+          { args: ["2d 3h"], expected: 183600 },
+          { args: ["10m 5s"], expected: 605 },
+          { args: ["3s1m"], expected: 63 },
+          { args: [""], expected: null },
+          { args: ["5x"], expected: null },
+          { args: ["1h1h"], expected: null },
+        ],
+      },
+      reward: { asset: "XLM", amount: "5" },
+      deadline: new Date(Date.now() + 86_400_000).toISOString(),
+      constraints: { maxDurationSeconds: 600 },
+    });
+    assert(e.status === 201, `task E creation failed ${JSON.stringify(e.body)}`);
+    const eId = e.body.id as string;
+    const fundE = await chainOp(eId, clientToken, clientSigner, { action: "fund" });
+    await waitFor("task E open", async () => (await status(eId)) === "open");
+    await coderAgent.runOnce();
+    const eApps = await http("GET", `/tasks/${eId}/applications`, clientToken);
+    assert(eApps.body.length === 1, "coder should have applied");
+    const assignE = await chainOp(eId, clientToken, clientSigner, {
+      action: "accept_application",
+      applicationId: eApps.body[0].id,
+    });
+    await waitFor("task E assigned", async () => (await status(eId)) === "assigned");
+    log("E: client funded a js-function task and assigned the model-backed agent", {
+      tx: fundE.txHash,
+      assignTx: assignE.txHash,
+      model: writer.model,
+    });
+
+    await coderAgent.runOnce();
+    await waitFor("task E under review", async () => (await status(eId)) === "under_review");
+    const histE = await http("GET", `/tasks/${eId}/history`, clientToken);
+    const subE = histE.body.submissions.at(-1);
+    assert(subE.verification.matches, "the API's own test run must pass");
+    log(
+      "E: the model wrote the code, the API ran the tests itself and the agent recorded it on-chain",
+      {
+        model: writer.model,
+        code: subE.output.code,
+        verification: {
+          method: subE.verification.method,
+          passed: subE.verification.passed,
+          total: subE.verification.total,
+        },
+        evidence: subE.digest,
+        tx: histE.body.chainOps.find((o: { action: string }) => o.action === "submit").tx_hash,
+      },
+    );
+
+    const coderBefore = await tokenBalance(coder.publicKey());
+    const approveE = await chainOp(eId, clientToken, clientSigner, { action: "approve" });
+    await waitFor("task E paid", async () => (await status(eId)) === "paid");
+    const coderDelta = (await tokenBalance(coder.publicKey())) - coderBefore;
+    assert(coderDelta === 50_000_000n, `coder should receive exactly 5 XLM, got ${coderDelta}`);
+    log("E: client approved; contract released exactly 5 XLM to the model-backed agent", {
+      tx: approveE.txHash,
+      payoutDelta: coderDelta.toString(),
+    });
+  }
 } catch (e) {
   exitCode = 1;
   console.error(e);

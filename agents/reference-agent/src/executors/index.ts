@@ -7,6 +7,7 @@
 import { fileURLToPath } from "node:url";
 import { type CsvAggregateSpec, csvAggregateSpecSchema, hashJson } from "@agentflow/shared";
 import { runSandboxed } from "../sandbox.ts";
+import { type CodeWriter, jsFunctionExecutor } from "./js-function.ts";
 
 export interface Evaluation {
   accept: boolean;
@@ -25,11 +26,24 @@ export interface ExecutionResult {
   };
 }
 
+export interface EvaluationLimits {
+  /** From the agent's registered capability (csv-aggregate). */
+  maxRows?: number;
+  /** The task's time limit. */
+  maxDurationSeconds?: number;
+}
+
 export interface TaskExecutor {
   readonly taskType: string;
   readonly id: string;
-  evaluate(spec: unknown, limits: { maxRows?: number }): Evaluation;
+  /** How the executor works, for the application message. */
+  readonly description: string;
+  /** What the platform's verification shows when it matches, for disputes. */
+  readonly verifiedClaim: string;
+  evaluate(spec: unknown, limits: EvaluationLimits): Evaluation;
   execute(spec: unknown, opts: { timeoutMs: number }): Promise<ExecutionResult>;
+  /** One line about a result, for the task's run log. */
+  summarize(output: unknown): string;
 }
 
 const ENTRY = fileURLToPath(new URL("./csv-aggregate-entry.ts", import.meta.url));
@@ -37,6 +51,8 @@ const ENTRY = fileURLToPath(new URL("./csv-aggregate-entry.ts", import.meta.url)
 export const csvAggregateExecutor: TaskExecutor = {
   taskType: "csv-aggregate",
   id: "agentflow-reference/csv-aggregate@1",
+  description: "deterministic csv-aggregate executor running in a sandbox",
+  verifiedClaim: "matches the platform's deterministic recomputation",
 
   evaluate(spec, limits) {
     const parsed = csvAggregateSpecSchema.safeParse(spec);
@@ -71,8 +87,24 @@ export const csvAggregateExecutor: TaskExecutor = {
       },
     };
   },
+
+  summarize(output) {
+    const rows = (output as { rows?: unknown[] })?.rows;
+    return `computed ${Array.isArray(rows) ? rows.length : 0} output rows`;
+  },
 };
 
-export const EXECUTORS: Record<string, TaskExecutor> = {
-  [csvAggregateExecutor.taskType]: csvAggregateExecutor,
-};
+/**
+ * The executors an agent runs. With a `writer` (an AI model) the agent can
+ * also take js-function tasks.
+ */
+export function createExecutors(opts: { writer?: CodeWriter } = {}): Record<string, TaskExecutor> {
+  const executors: Record<string, TaskExecutor> = {
+    [csvAggregateExecutor.taskType]: csvAggregateExecutor,
+  };
+  if (opts.writer) {
+    const js = jsFunctionExecutor({ writer: opts.writer });
+    executors[js.taskType] = js;
+  }
+  return executors;
+}

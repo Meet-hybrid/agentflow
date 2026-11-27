@@ -124,7 +124,7 @@ node -e '
   const steps = require(process.argv[1]).steps;
   for (const s of steps) {
     const d = s.detail || {};
-    for (const key of ["tx", "rejectTx"]) {
+    for (const key of ["tx", "assignTx", "rejectTx"]) {
       if (d[key]) console.log(d[key], d.result === "FAILED" && key === "tx" ? "FAILED" : "SUCCESS", s.step);
     }
   }
